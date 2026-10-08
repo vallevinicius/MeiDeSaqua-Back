@@ -1038,7 +1038,7 @@ export class AdminController {
       const totalUsuarios = await Usuario.count();
       const visualizacoesRaw = await ContadorVisualizacao.findAll();
 
-      const pageViews = { home: 0, espacoMei: 0, categoriasTotal: 0 };
+      const pageViews: any = { home: 0, espacoMei: 0, categoriasTotal: 0, redirecionamentoMei: 0, redirecionamentoUsuario: 0 };
       const mapaVisualizacoes: { [key: string]: number } = {};
       const mapaCursos: { [key: string]: number } = {};
 
@@ -1076,6 +1076,10 @@ export class AdminController {
           espacoMeiClicks.email = v.visualizacoes;
         } else if (v.identificador === "PROFILE_SHARE") {
           perfilCompartilhado = v.visualizacoes;
+        } else if (v.identificador === "REDIRECIONAMENTO_ANZOL_MEI") {
+          pageViews.redirecionamentoMei = v.visualizacoes;
+        } else if (v.identificador === "REDIRECIONAMENTO_ANZOL_USUARIO") {
+          pageViews.redirecionamentoUsuario = v.visualizacoes;
         }
       });
 

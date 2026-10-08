@@ -320,11 +320,11 @@ class EstabelecimentoController {
       if (
         chaveFormatada !== "HOME" &&
         chaveFormatada !== "ESPACO_MEI" &&
-        chaveFormatada !== "PROFILE_SHARE" &&
+        chaveFormatada !== "PROFILE_SHARE" && // <--- NOVO: Permite o compartilhamento de perfil
         !chaveFormatada.startsWith("CAT_") &&
         !chaveFormatada.startsWith("CURSO_") &&
-        !chaveFormatada.startsWith("LINK_") &&
-        !chaveFormatada.startsWith("REDIRECIONAMENTO_")
+        !chaveFormatada.startsWith("LINK_") &&  // <--- NOVO: Permite LINK_EMAIL, LINK_GOV, LINK_WPP
+        !chaveFormatada.startsWith("REDIRECIONAMENTO_ANZOL_") // Permite links de redirecionamento
       ) {
         chaveFormatada =
           "CAT_" +

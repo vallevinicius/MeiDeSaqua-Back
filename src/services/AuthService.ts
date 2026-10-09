@@ -68,10 +68,17 @@ class AuthService {
       enabled: false,
     });
 
-    await EmailService.sendConfirmationEmail(
-      novoUtilizador.email,
-      tokenConfirmacao
-    );
+    try {
+      await EmailService.sendConfirmationEmail(
+        novoUtilizador.email,
+        tokenConfirmacao
+      );
+    } catch (err) {
+      // Sem o e-mail de confirmação a conta nunca seria ativada: desfaz a criação
+      // para não deixar registro órfão (username/email presos como enabled:false).
+      await novoUtilizador.destroy();
+      throw err;
+    }
 
     const { password, ...dadosSeguros } = novoUtilizador.get({ plain: true });
     return dadosSeguros;

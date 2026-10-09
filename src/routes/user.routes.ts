@@ -10,5 +10,7 @@ router.use(authMiddleware);
 router.post('/profile', UserController.updateUserProfile);
 router.delete('/profile', UserController.deleteUserProfile);
 router.put('/password', UserController.updateUserPassword);
+router.get('/profile/estabelecimentos', UserController.getOwnEstabelecimentos);
+router.put('/profile/estabelecimentos/:id', UserController.updateOwnEstabelecimento);
 
 export default router;

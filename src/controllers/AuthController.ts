@@ -1,8 +1,10 @@
 import { Request, Response } from "express";
 import AuthService from "../services/AuthService";
-import Usuario from "../entities/Usuario.entity";
-import * as crypto from "crypto";
-import EmailService from "../utils/EmailService";
+import Estabelecimento, {
+  StatusEstabelecimento,
+} from "../entities/Estabelecimento.entity";
+import ImagemProduto from "../entities/ImagemProduto.entity"; // ADICIONAR IMPORT
+import * as jwt from "jsonwebtoken";
 import { Op } from "sequelize";
 
 class AuthController {
@@ -14,10 +16,26 @@ class AuthController {
           "Cadastro realizado com sucesso! Por favor, verifique seu e-mail para ativar sua conta.",
       });
     } catch (error: any) {
-      if (error.message.includes("já cadastrado")) {
-        return res.status(409).json({ message: error.message });
+      const message: string = error?.message ?? "";
+
+      if (message.includes("já cadastrado")) {
+        return res.status(409).json({ message });
       }
-      return res.status(400).json({ message: error.message });
+
+      // Erros de validação de negócio conhecidos: devolver a mensagem ao cliente.
+      const erroValidacaoConhecido =
+        message.includes("inapropriad") || message.includes("emoji");
+      if (erroValidacaoConhecido) {
+        return res.status(400).json({ message });
+      }
+
+      // Qualquer outra coisa (ex.: SMTP "Greeting never received", falha de DB):
+      // logar internamente e devolver mensagem genérica, sem vazar detalhes.
+      console.error("Erro inesperado no cadastro:", error);
+      return res.status(500).json({
+        message:
+          "Não foi possível concluir o cadastro. Entre em contato conosco por e-mail.",
+      });
     }
   }
 
@@ -54,53 +72,6 @@ class AuthController {
       });
     } catch (error: any) {
       return res.status(400).json({ message: error.message });
-    }
-  }
-
-  public async resendConfirmation(
-    req: Request,
-    res: Response,
-  ): Promise<Response> {
-    try {
-      const { username } = req.body;
-
-      if (!username) {
-        return res
-          .status(400)
-          .json({ message: "Usuário/E-mail é obrigatório." });
-      }
-
-      const usuario = await Usuario.findOne({
-        where: {
-          [Op.or]: [{ username: username }, { email: username }],
-        },
-      });
-
-      if (!usuario) {
-        return res.status(404).json({ message: "Usuário não encontrado." });
-      }
-
-      if (usuario.enabled) {
-        return res
-          .status(400)
-          .json({ message: "Esta conta já está verificada." });
-      }
-
-      const confirmationToken = crypto.randomBytes(20).toString("hex");
-      usuario.confirmationToken = confirmationToken;
-      await usuario.save();
-
-      await EmailService.sendConfirmationEmail(
-        usuario.email,
-        confirmationToken,
-      );
-
-      return res
-        .status(200)
-        .json({ message: "E-mail de confirmação reenviado com sucesso!" });
-    } catch (error: any) {
-      console.error("Erro ao reenviar confirmação:", error);
-      return res.status(500).json({ message: "Erro ao reenviar o e-mail." });
     }
   }
 

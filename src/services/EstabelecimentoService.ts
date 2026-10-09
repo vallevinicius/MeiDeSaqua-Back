@@ -14,6 +14,10 @@ class EstabelecimentoService {
   public async cadastrarEstabelecimentoComImagens(
     dados: any,
   ): Promise<Estabelecimento> {
+    if (!dados.usuarioId) {
+      throw new Error("Usuário responsável pelo estabelecimento é obrigatório.");
+    }
+
     if (!dados.cnpj) {
       throw new Error("O campo CNPJ é obrigatório.");
     }
@@ -76,6 +80,7 @@ class EstabelecimentoService {
       }
 
       const dadosParaCriacao = {
+        usuarioId: dados.usuarioId,
         nomeFantasia: dados.nomeFantasia,
         cnpj: dados.cnpj,
         categoria: dados.categoria,
@@ -171,6 +176,55 @@ class EstabelecimentoService {
       attributes: CAMPOS_VITRINE,
       where: {
         status: StatusEstabelecimento.ATIVO,
+      },
+      include: [
+        {
+          model: ImagemProduto,
+          as: "produtosImg",
+          attributes: ["url"],
+        },
+      ],
+    });
+  }
+
+  public async listarPorUsuarioId(usuarioId: number): Promise<Estabelecimento[]> {
+    return Estabelecimento.findAll({
+      where: { usuarioId },
+      include: [
+        {
+          model: ImagemProduto,
+          as: "produtosImg",
+          attributes: ["url"],
+        },
+      ],
+      order: [["estabelecimentoId", "DESC"]],
+    });
+  }
+
+  public async solicitarAtualizacaoPorIdEUsuario(
+    estabelecimentoId: number,
+    usuarioId: number,
+    dadosAtualizacao: any,
+  ): Promise<Estabelecimento> {
+    const estabelecimento = await Estabelecimento.findOne({
+      where: { estabelecimentoId, usuarioId },
+    });
+
+    if (!estabelecimento) {
+      throw new Error("Estabelecimento não encontrado para este usuário.");
+    }
+
+    estabelecimento.status = StatusEstabelecimento.PENDENTE_ATUALIZACAO;
+    estabelecimento.dados_atualizacao = dadosAtualizacao;
+    await estabelecimento.save();
+
+    return estabelecimento;
+  }
+
+  public async listarInativos(): Promise<Estabelecimento[]> {
+    return Estabelecimento.findAll({
+      where: {
+        status: StatusEstabelecimento.REJEITADO,
       },
       include: [
         {
@@ -300,25 +354,19 @@ class EstabelecimentoService {
     }
     estabelecimento.ativo = ativo;
 
-    estabelecimento.status = ativo
-      ? StatusEstabelecimento.ATIVO
-      : StatusEstabelecimento.INATIVO;
+    // Atualiza o 'status' para refletir a mudança
+    if (ativo === false) {
+      // Define um status inativo (REJEITADO é uma boa opção do seu Enum)
+      estabelecimento.status = StatusEstabelecimento.REJEITADO;
+    } else {
+      // Se estiver reativando, define o status como ATIVO
+      estabelecimento.status = StatusEstabelecimento.ATIVO;
+    }
 
     await estabelecimento.save();
     return estabelecimento;
   }
 
-  public async listarParaAdminGeral(): Promise<Estabelecimento[]> {
-    return Estabelecimento.findAll({
-      include: [
-        {
-          model: ImagemProduto,
-          as: "produtosImg",
-          attributes: ["url"],
-        },
-      ],
-    });
-  }
   public async listarPendentes(): Promise<{
     cadastros: Estabelecimento[];
     atualizacoes: Estabelecimento[];

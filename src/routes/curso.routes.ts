@@ -5,21 +5,19 @@ import { receberArquivos, uploadSeguro } from "../utils/secureUpload";
 
 const router = Router();
 
-// Rota pública
-router.get("/", CursoController.index);
-
+router.get("/", CursoController.listarCursos);
 router.post(
   "/",
   adminAuthMiddleware,
-  ...receberArquivos(uploadSeguro.single("file")),
-  CursoController.store,
+  ...receberArquivos(uploadSeguro.any()),
+  CursoController.criarCurso,
 );
 router.put(
   "/:id",
   adminAuthMiddleware,
-  ...receberArquivos(uploadSeguro.single("file")),
-  CursoController.update,
+  ...receberArquivos(uploadSeguro.any()),
+  CursoController.atualizarCurso,
 );
-router.delete("/:id", adminAuthMiddleware, CursoController.delete);
+router.delete("/:id", adminAuthMiddleware, CursoController.removerCurso);
 
 export default router;

@@ -1,3 +1,12 @@
+import { Request } from "express";
+
+export interface AuthenticatedRequest extends Request {
+  user?: {
+    id: number;
+    username: string;
+  };
+}
+
 export interface IUpdateProfileRequest {
   nomeCompleto?: string;
   username?: string;

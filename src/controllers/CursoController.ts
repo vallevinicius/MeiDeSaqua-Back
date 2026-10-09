@@ -1,83 +1,115 @@
 import { Request, Response } from "express";
-import { Curso } from "../entities";
+import CursoService from "../services/CursoService";
 import FileStorageService from "../utils/FileStorageService";
 
 class CursoController {
-  // Listar todos
-  public async index(req: Request, res: Response): Promise<Response> {
+  private async extractPayload(req: Request) {
+    const payload: any = { ...req.body };
+
+    // Aceita aliases comuns vindos do front para evitar falhas de integração.
+    payload.nome = payload.nome ?? payload.name ?? payload.titulo;
+    payload.descricao = payload.descricao ?? payload.description;
+    payload.link = payload.link ?? payload.url;
+
+    if (typeof payload.ativo === "string") {
+      const normalizedAtivo = payload.ativo.trim().toLowerCase();
+      if (["true", "1", "on", "yes"].includes(normalizedAtivo)) {
+        payload.ativo = true;
+      } else if (["false", "0", "off", "no"].includes(normalizedAtivo)) {
+        payload.ativo = false;
+      }
+    }
+
+    let uploadFile: Express.Multer.File | undefined;
+
+    if (req.file) {
+      uploadFile = req.file;
+    } else if (Array.isArray(req.files) && req.files.length > 0) {
+      uploadFile = req.files[0] as Express.Multer.File;
+    } else if (req.files && !Array.isArray(req.files)) {
+      const filesMap = req.files as { [fieldname: string]: Express.Multer.File[] };
+      uploadFile = filesMap.imagem?.[0] || filesMap.file?.[0];
+    }
+
+    if (uploadFile) {
+      payload.imagemUrl = await FileStorageService.save(uploadFile);
+    }
+
+    return payload;
+  }
+
+  private serialize(curso: any) {
+    return {
+      id: curso.cursoId,
+      cursoId: curso.cursoId,
+      nome: curso.nome,
+      descricao: null,
+      link: curso.link,
+      imagemUrl: curso.imagemUrl,
+      ativo: true,
+      createdAt: curso.createdAt,
+      updatedAt: curso.updatedAt,
+    };
+  }
+
+  public listarCursos = async (
+    req: Request,
+    res: Response,
+  ): Promise<Response> => {
     try {
-      const cursos = await Curso.findAll({ order: [["createdAt", "DESC"]] });
-      return res.json(cursos);
+      const cursos = await CursoService.listarTodos();
+      return res.json(cursos.map((curso) => this.serialize(curso)));
     } catch (error: any) {
       return res.status(500).json({ message: error.message });
     }
-  }
+  };
 
-  // Criar novo (Com Upload)
-  public async store(req: Request, res: Response): Promise<Response> {
+  public criarCurso = async (req: Request, res: Response): Promise<Response> => {
     try {
-      const { titulo, link } = req.body;
-      let imagemUrl = "";
-
-      if (req.file) {
-        imagemUrl = await FileStorageService.saveCurso(req.file);
-      } else {
-        imagemUrl = req.body.imagemUrl || "";
-      }
-
-      const curso = await Curso.create({ titulo, link, imagemUrl });
-      return res.status(201).json(curso);
+      const payload = await this.extractPayload(req);
+      const curso = await CursoService.criar(payload);
+      return res.status(201).json(this.serialize(curso));
     } catch (error: any) {
       return res.status(400).json({ message: error.message });
     }
-  }
+  };
 
-  // Editar
-  public async update(req: Request, res: Response): Promise<Response> {
+  public atualizarCurso = async (
+    req: Request,
+    res: Response,
+  ): Promise<Response> => {
     try {
-      const { id } = req.params;
-      const { titulo, link } = req.body;
-
-      const curso = await Curso.findByPk(id);
-      if (!curso)
-        return res.status(404).json({ message: "Curso não encontrado" });
-
-      if (req.file) {
-        if (curso.imagemUrl) {
-          await FileStorageService.deleteFile(curso.imagemUrl);
-        }
-        const novaImagemUrl = await FileStorageService.saveCurso(req.file);
-
-        await curso.update({ titulo, link, imagemUrl: novaImagemUrl });
-      } else {
-        await curso.update({ titulo, link });
+      const cursoId = Number(req.params.id);
+      if (Number.isNaN(cursoId)) {
+        return res.status(400).json({ message: "Parâmetro 'id' inválido." });
       }
 
-      return res.json(curso);
+      const payload = await this.extractPayload(req);
+      const curso = await CursoService.atualizar(cursoId, payload);
+      return res.json(this.serialize(curso));
     } catch (error: any) {
-      return res.status(400).json({ message: error.message });
+      const status = error.message === "Curso não encontrado." ? 404 : 400;
+      return res.status(status).json({ message: error.message });
     }
-  }
+  };
 
-  // Deletar
-  public async delete(req: Request, res: Response): Promise<Response> {
+  public removerCurso = async (
+    req: Request,
+    res: Response,
+  ): Promise<Response> => {
     try {
-      const { id } = req.params;
-      const curso = await Curso.findByPk(id);
-      if (!curso)
-        return res.status(404).json({ message: "Curso não encontrado" });
-
-      if (curso.imagemUrl) {
-        await FileStorageService.deleteFile(curso.imagemUrl);
+      const cursoId = Number(req.params.id);
+      if (Number.isNaN(cursoId)) {
+        return res.status(400).json({ message: "Parâmetro 'id' inválido." });
       }
 
-      await curso.destroy();
-
+      await CursoService.remover(cursoId);
       return res.status(204).send();
     } catch (error: any) {
-      return res.status(500).json({ message: error.message });
+      const status = error.message === "Curso não encontrado." ? 404 : 400;
+      return res.status(status).json({ message: error.message });
     }
-  }
+  };
 }
 
 export default new CursoController();

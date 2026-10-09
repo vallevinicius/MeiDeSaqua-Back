@@ -1,27 +1,28 @@
-// src/server.ts - VERSÃO CORRIGIDA PARA .env.local
-
 import dotenv from "dotenv";
 import path from "path";
 
 dotenv.config({ path: path.resolve(__dirname, "..", ".env.local") });
+dotenv.config();
 
-console.log("Servindo uploads em:", path.resolve(__dirname, "..", "uploads"));
 import app from "./app";
 import sequelize from "./config/database";
+import "./entities";
+import EmailService from "./utils/EmailService";
 
-const PORT = process.env.PORT || 3306;
+const PORT = Number(process.env.PORT) || 3000;
 
 sequelize
-  .sync({ alter: true })
+  .authenticate()
   .then(() => {
-    console.log("Conexão com a base de dados estabelecida com sucesso.");
+    console.log("Conexão com o banco estabelecida com sucesso!");
+    return sequelize.sync();
+  })
+  .then(() => {
     app.listen(PORT, () => {
-      console.log(`🚀 Servidor a rodar na porta ${PORT}`);
-      console.log(
-        `✅ A sua API está pronta! Pode aceder em http://localhost:${PORT}`,
-      );
+      console.log(`Servidor rodando na porta ${PORT}`);
     });
+    void EmailService.verifyConnection();
   })
   .catch((err) => {
-    console.error("❌ Não foi possível conectar à base de dados:", err);
+    console.error("Erro ao iniciar servidor:", err);
   });

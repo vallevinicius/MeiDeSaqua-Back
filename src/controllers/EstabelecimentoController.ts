@@ -7,6 +7,7 @@ import path from "path";
 import Estabelecimento from "../entities/Estabelecimento.entity";
 import ContadorVisualizacao from "../entities/ContadorVisualizacao.entity";
 import { sanitizeFilename } from "../utils/stringUtils";
+import { AuthenticatedRequest } from "../interfaces/requests";
 
 class EstabelecimentoController {
   private _deleteUploadedFilesOnFailure = async (req: Request) => {
@@ -118,9 +119,19 @@ class EstabelecimentoController {
     };
   };
 
-  public cadastrar = async (req: Request, res: Response): Promise<Response> => {
+  public cadastrar = async (
+    req: AuthenticatedRequest,
+    res: Response,
+  ): Promise<Response> => {
     try {
+      const usuarioId = req.user?.id;
+      if (!usuarioId) {
+        return res.status(401).json({ message: "Não autorizado." });
+      }
+
       const dadosCompletos = await this._moveFilesAndPrepareData(req);
+      dadosCompletos.usuarioId = usuarioId;
+
       const novoEstabelecimento =
         await EstabelecimentoService.cadastrarEstabelecimentoComImagens(
           dadosCompletos,
@@ -309,13 +320,15 @@ class EstabelecimentoController {
 
       let chaveFormatada = identificador.trim().toUpperCase();
 
+      // --- AQUI ESTÁ A CORREÇÃO ---
       if (
         chaveFormatada !== "HOME" &&
         chaveFormatada !== "ESPACO_MEI" &&
-        chaveFormatada !== "REDIRECIONAMENTO" &&
-        chaveFormatada !== "PROFILE_SHARE" &&
+        chaveFormatada !== "PROFILE_SHARE" && // <--- NOVO: Permite o compartilhamento de perfil
         !chaveFormatada.startsWith("CAT_") &&
-        !chaveFormatada.startsWith("CURSO_")
+        !chaveFormatada.startsWith("CURSO_") &&
+        !chaveFormatada.startsWith("LINK_") &&  // <--- NOVO: Permite LINK_EMAIL, LINK_GOV, LINK_WPP
+        !chaveFormatada.startsWith("REDIRECIONAMENTO_ANZOL_") // Permite links de redirecionamento
       ) {
         chaveFormatada =
           "CAT_" +
@@ -324,6 +337,7 @@ class EstabelecimentoController {
             .replace(/[\u0300-\u036f]/g, "")
             .replace(/[^A-Z0-9]/g, "_");
       }
+      // ----------------------------
 
       const [registro] = await ContadorVisualizacao.findOrCreate({
         where: { identificador: chaveFormatada },

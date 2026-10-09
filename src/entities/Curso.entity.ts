@@ -1,38 +1,40 @@
-import { Model, DataTypes } from "sequelize";
+import { DataTypes, Model } from "sequelize";
 import sequelize from "../config/database";
 
 class Curso extends Model {
-  public id!: number;
-  public titulo!: string;
-  public link!: string;
-  public imagemUrl!: string;
-  public readonly createdAt!: Date;
-  public readonly updatedAt!: Date;
+  public cursoId!: number;
+  public nome!: string;
+  public link!: string | null;
+  public imagemUrl!: string | null;
 }
 
 Curso.init(
   {
-    id: {
+    cursoId: {
       type: DataTypes.INTEGER,
       autoIncrement: true,
       primaryKey: true,
+      field: "id",
     },
-    titulo: {
+    nome: {
       type: DataTypes.STRING,
       allowNull: false,
+      field: "titulo",
     },
     link: {
       type: DataTypes.STRING,
-      allowNull: false,
+      allowNull: true,
     },
     imagemUrl: {
       type: DataTypes.STRING,
-      allowNull: false,
+      allowNull: true,
+      field: "imagemUrl",
     },
   },
   {
     sequelize,
     tableName: "cursos",
+    timestamps: true,
   },
 );
 

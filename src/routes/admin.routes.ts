@@ -35,11 +35,29 @@ router.get(
   AdminController.getAllActiveEstabelecimentos,
 );
 
+router.get(
+  "/estabelecimentos-geral",
+  adminAuthMiddleware,
+  AdminController.getAllActiveEstabelecimentos,
+);
+
+router.get(
+  "/estabelecimentos-inativos",
+  adminAuthMiddleware,
+  AdminController.getAllInactiveEstabelecimentos,
+);
+
 router.patch(
   "/estabelecimento/:id",
   adminAuthMiddleware,
   ...uploadAdmin,
   AdminController.adminUpdateEstabelecimento,
+);
+
+router.put(
+  "/estabelecimento/:id/status",
+  adminAuthMiddleware,
+  AdminController.adminAlterarStatusEstabelecimento,
 );
 
 router.delete(
@@ -93,21 +111,6 @@ router.post(
   adminAuthMiddleware,
   AdminController.resendConfirmationEmail,
 );
-
-// Rota para buscar TODOS os estabelecimentos (Ativos e Inativos) para a aba "Geral"
-router.get(
-  "/estabelecimentos-geral",
-  adminAuthMiddleware,
-  AdminController.getAllEstabelecimentosGeral,
-);
-
-// Rota para o Admin ativar/desativar um estabelecimento manualmente
-router.put(
-  "/estabelecimento/:id/status",
-  adminAuthMiddleware,
-  AdminController.toggleEstabelecimentoStatus,
-);
-
 // =================================
 
 export default router;

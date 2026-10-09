@@ -10,7 +10,7 @@ const UPLOADS_DIR = path.resolve(process.cwd(), "uploads");
 router.post(
   "/upload",
   authMiddleware,
-  ...receberArquivos(uploadSeguro.single("file"), { moverPara: UPLOADS_DIR }),
+  ...receberArquivos(uploadSeguro.any(), { moverPara: UPLOADS_DIR }),
   FileController.uploadFile
 );
 

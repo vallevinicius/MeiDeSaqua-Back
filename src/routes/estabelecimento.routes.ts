@@ -1,6 +1,7 @@
 import { Router } from "express";
 import EstabelecimentoController from "../controllers/EstabelecimentoController";
 import { adminAuthMiddleware } from "../middlewares/adminAuth.middleware";
+import { authMiddleware } from "../middlewares/auth.middleware";
 import { receberArquivos, uploadSeguro } from "../utils/secureUpload";
 
 const router = Router();
@@ -11,6 +12,7 @@ router.get("/:id", EstabelecimentoController.buscarPorId);
 
 router.post(
   "/",
+  authMiddleware,
   ...receberArquivos(uploadSeguro.fields([
     { name: "logo", maxCount: 1 },
     { name: "produtos", maxCount: 5 },

@@ -1,10 +1,12 @@
 import { Router } from "express";
 import { AdminController } from "../controllers/AdminController";
 import { adminAuthMiddleware } from "../middlewares/adminAuth.middleware";
-import multer from "multer";
+import { receberArquivos, uploadSeguro } from "../utils/secureUpload";
 
 const router = Router();
-const upload = multer();
+const uploadAdmin = receberArquivos(uploadSeguro.any(), {
+  camposPdf: ["ccmei"],
+});
 
 router.post("/login", AdminController.login);
 
@@ -17,7 +19,7 @@ router.post(
 router.post(
   "/edit-and-approve/:id",
   adminAuthMiddleware,
-  upload.any(),
+  ...uploadAdmin,
   AdminController.editAndApproveRequest,
 );
 router.post(
@@ -48,7 +50,7 @@ router.get(
 router.patch(
   "/estabelecimento/:id",
   adminAuthMiddleware,
-  upload.any(),
+  ...uploadAdmin,
   AdminController.adminUpdateEstabelecimento,
 );
 

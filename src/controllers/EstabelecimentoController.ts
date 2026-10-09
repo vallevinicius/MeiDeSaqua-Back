@@ -136,7 +136,9 @@ class EstabelecimentoController {
         await EstabelecimentoService.cadastrarEstabelecimentoComImagens(
           dadosCompletos,
         );
-      return res.status(201).json(novoEstabelecimento);
+      return res.status(201).json({
+        estabelecimentoId: novoEstabelecimento.estabelecimentoId,
+      });
     } catch (error: any) {
       await this._deleteUploadedFilesOnFailure(req);
       return this._handleError(error, res);
@@ -171,15 +173,13 @@ class EstabelecimentoController {
         nomeFantasia: estabelecimentoExistente.nomeFantasia,
       });
 
-      const estabelecimento =
-        await EstabelecimentoService.solicitarAtualizacaoPorCnpj(
-          cnpj,
-          dadosCompletos,
-        );
+      await EstabelecimentoService.solicitarAtualizacaoPorCnpj(
+        cnpj,
+        dadosCompletos,
+      );
 
       return res.status(200).json({
         message: "Solicitação de atualização enviada para análise.",
-        estabelecimento,
       });
     } catch (error: any) {
       await this._deleteUploadedFilesOnFailure(req);
@@ -295,7 +295,11 @@ class EstabelecimentoController {
         id,
         ativo,
       );
-      return res.status(200).json(estabelecimento);
+      return res.status(200).json({
+        estabelecimentoId: estabelecimento.estabelecimentoId,
+        status: estabelecimento.status,
+        ativo: estabelecimento.ativo,
+      });
     } catch (error: any) {
       return this._handleError(error, res);
     }

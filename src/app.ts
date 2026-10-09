@@ -18,6 +18,12 @@ import adminRoutes from "./routes/admin.routes";
 import cursoRoutes from "./routes/curso.routes";
 import { authMiddleware } from "./middlewares/auth.middleware";
 
+for (const nome of ["JWT_SECRET", "ADMIN_JWT_SECRET"]) {
+  if (!process.env[nome]) {
+    throw new Error(`Variável de ambiente ${nome} não definida.`);
+  }
+}
+
 const app = express();
 const uploadsPath = path.resolve(process.cwd(), "uploads");
 
@@ -25,7 +31,28 @@ app.use(cors());
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 
-app.use("/uploads", express.static(uploadsPath));
+const EXTENSOES_IMAGEM = new Set([".jpg", ".jpeg", ".png", ".webp", ".gif"]);
+
+// Entrega inerte: nada em /uploads executa script na origem do portal.
+app.use(
+  "/uploads",
+  express.static(uploadsPath, {
+    dotfiles: "deny",
+    index: false,
+    setHeaders: (res, filePath) => {
+      res.setHeader("X-Content-Type-Options", "nosniff");
+      res.setHeader("Content-Security-Policy", "sandbox; default-src 'none'");
+      const ext = path.extname(filePath).toLowerCase();
+      if (!EXTENSOES_IMAGEM.has(ext)) {
+        res.setHeader("Content-Disposition", "attachment");
+        res.setHeader(
+          "Content-Type",
+          ext === ".pdf" ? "application/pdf" : "application/octet-stream",
+        );
+      }
+    },
+  }),
+);
 
 app.use("/api/auth", authRoutes);
 app.use("/api/estabelecimentos", estabelecimentoRoutes);
@@ -36,6 +63,5 @@ app.use("/api/cursos", cursoRoutes);
 app.use("/api/admin", adminRoutes);
 
 app.use("/api/users", authMiddleware, userRoutes);
-app.use("/uploads", express.static(path.resolve(__dirname, "..", "uploads")));
 
 export default app;

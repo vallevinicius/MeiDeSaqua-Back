@@ -101,8 +101,8 @@ class AuthService {
 
     const token = jwt.sign(
       { id: utilizador.usuarioId, username: utilizador.username },
-      process.env.JWT_SECRET || "default_secret",
-      { expiresIn: "1h" }
+      process.env.JWT_SECRET as string,
+      { expiresIn: "1h", algorithm: "HS256" }
     );
 
     const { password, ...dadosSeguros } = utilizador.get({ plain: true });

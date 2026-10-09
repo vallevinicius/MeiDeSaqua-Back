@@ -1,7 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import * as jwt from "jsonwebtoken";
 
-const JWT_SECRET = process.env.ADMIN_JWT_SECRET || "seu-segredo-admin-super-secreto";
 
 export const adminAuthMiddleware = (
   req: Request,
@@ -15,7 +14,9 @@ export const adminAuthMiddleware = (
   }
 
   try {
-    const decoded = jwt.verify(token, JWT_SECRET) as any;
+    const decoded = jwt.verify(token, process.env.ADMIN_JWT_SECRET as string, {
+      algorithms: ["HS256"],
+    }) as any;
     if (decoded.role === "admin") {
       next();
     } else {

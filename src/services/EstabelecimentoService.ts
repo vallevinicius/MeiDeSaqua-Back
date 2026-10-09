@@ -8,6 +8,7 @@ import Avaliacao from "../entities/Avaliacao.entity";
 import CnpjService from "./CnpjService";
 import Usuario from "../entities/Usuario.entity";
 import FileStorageService from "../utils/FileStorageService";
+import { CAMPOS_VITRINE } from "../serializers/estabelecimento.serializer";
 
 class EstabelecimentoService {
   public async cadastrarEstabelecimentoComImagens(
@@ -150,8 +151,24 @@ class EstabelecimentoService {
     await estabelecimento.save();
   }
 
+  public async listarTodosParaAdmin(): Promise<Estabelecimento[]> {
+    return Estabelecimento.findAll({
+      where: {
+        status: StatusEstabelecimento.ATIVO,
+      },
+      include: [
+        {
+          model: ImagemProduto,
+          as: "produtosImg",
+          attributes: ["url"],
+        },
+      ],
+    });
+  }
+
   public async listarTodos(): Promise<Estabelecimento[]> {
     return Estabelecimento.findAll({
+      attributes: CAMPOS_VITRINE,
       where: {
         status: StatusEstabelecimento.ATIVO,
       },
@@ -167,6 +184,7 @@ class EstabelecimentoService {
 
   public async buscarPorNome(nome: string): Promise<Estabelecimento[]> {
     return Estabelecimento.findAll({
+      attributes: CAMPOS_VITRINE,
       where: {
         nomeFantasia: {
           [Op.like]: `%${nome}%`,
@@ -186,6 +204,7 @@ class EstabelecimentoService {
   public async buscarPorId(id: number): Promise<Estabelecimento | null> {
     try {
       const estabelecimento = await Estabelecimento.findOne({
+        attributes: CAMPOS_VITRINE,
         where: {
           estabelecimentoId: id,
           status: StatusEstabelecimento.ATIVO,

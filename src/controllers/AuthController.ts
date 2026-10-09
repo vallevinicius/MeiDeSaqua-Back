@@ -22,8 +22,6 @@ class AuthController {
   }
 
   public async login(req: Request, res: Response): Promise<Response> {
-    console.log("Dados recebidos no controller:", req.body);
-
     try {
       const { username, password } = req.body;
 

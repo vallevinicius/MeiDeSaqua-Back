@@ -51,12 +51,10 @@ const moveAdminFile = async (
 
   await fs.mkdir(targetDir, { recursive: true });
 
-  let fileName = `${Date.now()}-${file.originalname.replace(/\s/g, "_")}`;
-
-  if (file.fieldname === "ccmei") {
-    const ext = path.extname(file.originalname);
-    fileName = `CCMEI${ext}`;
-  }
+  // file.filename é gerado pelo servidor (UUID + extensão do tipo detectado).
+  const ext = path.extname(file.filename);
+  const fileName =
+    file.fieldname === "ccmei" ? `CCMEI${ext}` : `${Date.now()}-${file.filename}`;
 
   const newPath = path.join(targetDir, fileName);
 
@@ -90,6 +88,7 @@ export class AdminController {
         JWT_SECRET as string,
         {
           expiresIn: "8h",
+          algorithm: "HS256",
         },
       );
       return res.json({ success: true, token });
@@ -496,7 +495,7 @@ export class AdminController {
   static async getAllActiveEstabelecimentos(req: Request, res: Response) {
     try {
       // Esta função chama o Service, que já está correto
-      const estabelecimentos = await EstabelecimentoService.listarTodos();
+      const estabelecimentos = await EstabelecimentoService.listarTodosParaAdmin();
       return res.json(estabelecimentos);
     } catch (error) {
       console.error(error);
@@ -834,7 +833,7 @@ export class AdminController {
 
   static async exportActiveEstabelecimentos(req: Request, res: Response) {
     try {
-      const estabelecimentos = await EstabelecimentoService.listarTodos();
+      const estabelecimentos = await EstabelecimentoService.listarTodosParaAdmin();
 
       if (!estabelecimentos || estabelecimentos.length === 0) {
         return res

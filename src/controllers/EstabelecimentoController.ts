@@ -6,6 +6,7 @@ import fs from "fs/promises";
 import path from "path";
 import Estabelecimento from "../entities/Estabelecimento.entity";
 import ContadorVisualizacao from "../entities/ContadorVisualizacao.entity";
+import ContadorVisualizacaoDiario from "../entities/ContadorVisualizacaoDiario.entity";
 import { sanitizeFilename } from "../utils/stringUtils";
 import { AuthenticatedRequest } from "../interfaces/requests";
 
@@ -343,8 +344,14 @@ class EstabelecimentoController {
         where: { identificador: chaveFormatada },
         defaults: { visualizacoes: 0 },
       });
-
       await registro.increment("visualizacoes");
+
+      const hoje = new Date().toISOString().slice(0, 10);
+      const [registroDiario] = await ContadorVisualizacaoDiario.findOrCreate({
+        where: { identificador: chaveFormatada, data: hoje },
+        defaults: { visualizacoes: 0 },
+      });
+      await registroDiario.increment("visualizacoes");
 
       return res.status(200).json({ success: true });
     } catch (error: any) {

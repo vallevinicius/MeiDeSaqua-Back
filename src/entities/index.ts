@@ -5,6 +5,7 @@ import Estabelecimento from "./Estabelecimento.entity";
 import Avaliacao from "./Avaliacao.entity";
 import ImagemProduto from "./ImagemProduto.entity";
 import ContadorVisualizacao from "./ContadorVisualizacao.entity";
+import ContadorVisualizacaoDiario from "./ContadorVisualizacaoDiario.entity";
 import Curso from "./Curso.entity";
 
 // Usuário <-> Estabelecimento
@@ -57,5 +58,6 @@ export {
   Avaliacao,
   ImagemProduto,
   ContadorVisualizacao,
+  ContadorVisualizacaoDiario,
   Curso,
 };

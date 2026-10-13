@@ -265,7 +265,12 @@ class EstabelecimentoController {
     res: Response,
   ): Promise<Response> => {
     try {
-      const id = parseInt(req.params.id);
+      const id = Number(req.params.id);
+      if (!Number.isInteger(id) || id <= 0) {
+        return res.status(400).json({
+          message: "ID de estabelecimento inválido.",
+        });
+      }
 
       const estabelecimento = await EstabelecimentoService.buscarPorId(id);
 
@@ -284,7 +289,13 @@ class EstabelecimentoController {
     res: Response,
   ): Promise<Response> => {
     try {
-      const id = parseInt(req.params.id);
+      const id = Number(req.params.id);
+      if (!Number.isInteger(id) || id <= 0) {
+        return res.status(400).json({
+          message: "ID de estabelecimento inválido.",
+        });
+      }
+
       const { ativo } = req.body;
       if (typeof ativo !== "boolean") {
         return res.status(400).json({

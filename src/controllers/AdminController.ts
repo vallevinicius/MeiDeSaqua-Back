@@ -16,6 +16,8 @@ import * as bcrypt from "bcryptjs";
 import * as crypto from "crypto";
 import ContadorVisualizacao from "../entities/ContadorVisualizacao.entity";
 import ContadorVisualizacaoDiario from "../entities/ContadorVisualizacaoDiario.entity";
+import HistoricoRelatorioCampanha from "../entities/HistoricoRelatorioCampanha.entity";
+import CampanhaReportService from "../services/CampanhaReportService";
 
 const ADMIN_USER = process.env.ADMIN_USER;
 
@@ -1013,10 +1015,8 @@ export class AdminController {
 
       const totalMeis = estabelecimentos.length;
 
-      // 2. Avaliações
-      const whereAvaliacoes: any = {
-        parentId: null,
-      };
+      // 2. Avaliações (Comentários e Respostas)
+      const whereAvaliacoes: any = {};
       if (isPeriodo) {
         whereAvaliacoes.createdAt = {
           [Op.between]: [
@@ -1033,11 +1033,13 @@ export class AdminController {
 
       const totalAvaliacoes = avaliacoes.length;
       let somaNotas = 0;
+      let totalComNota = 0;
       const distribuicaoNotas = [0, 0, 0, 0, 0];
 
       avaliacoes.forEach((a) => {
-        if (a.nota) {
+        if (a.nota !== null && a.nota !== undefined && a.nota > 0) {
           somaNotas += a.nota;
+          totalComNota++;
           const notaIndex = Math.floor(a.nota) - 1;
           if (notaIndex >= 0 && notaIndex < 5) {
             distribuicaoNotas[notaIndex]++;
@@ -1046,7 +1048,7 @@ export class AdminController {
       });
 
       const mediaAvaliacao =
-        totalAvaliacoes > 0 ? (somaNotas / totalAvaliacoes).toFixed(1) : 0;
+        totalComNota > 0 ? (somaNotas / totalComNota).toFixed(1) : 0;
 
       const chartDistribuicaoNotas = distribuicaoNotas.map((qtd, index) => ({
         nota: `${index + 1} Estrela${index !== 0 ? "s" : ""}`,
@@ -1409,6 +1411,40 @@ export class AdminController {
       return res
         .status(500)
         .json({ message: "Erro ao enviar email de confirmação." });
+    }
+  }
+
+  // =========================================================================
+  // RELATÓRIOS AUTOMÁTICOS DE CAMPANHA (ANZOL)
+  // =========================================================================
+
+  static async dispararRelatorioCampanha(req: Request, res: Response) {
+    try {
+      const resultado = await CampanhaReportService.dispararRelatorio();
+      return res.status(200).json(resultado);
+    } catch (error: any) {
+      console.error("Erro ao disparar relatório de campanha (admin):", error);
+      return res.status(500).json({
+        message: "Erro ao disparar relatório de campanha.",
+        error: error?.message || String(error),
+      });
+    }
+  }
+
+  static async getHistoricoRelatoriosCampanha(req: Request, res: Response) {
+    try {
+      const historico = await HistoricoRelatorioCampanha.findAll({
+        where: { tipoCampanha: "ANZOL" },
+        order: [["createdAt", "DESC"]],
+        limit: 20,
+      });
+      return res.status(200).json(historico);
+    } catch (error: any) {
+      console.error("Erro ao listar histórico de relatórios (admin):", error);
+      return res.status(500).json({
+        message: "Erro ao buscar histórico de relatórios.",
+        error: error?.message || String(error),
+      });
     }
   }
 }

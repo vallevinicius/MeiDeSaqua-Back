@@ -9,6 +9,7 @@ import sequelize from "./config/database";
 import "./entities";
 import EmailService from "./utils/EmailService";
 import { runDatabaseMigrations } from "./migrations/initDatabaseMigration";
+import { iniciarCampanhaScheduler } from "./schedulers/campanhaScheduler";
 
 const PORT = Number(process.env.PORT) || 3000;
 
@@ -24,6 +25,7 @@ sequelize
       console.log(`Servidor rodando na porta ${PORT}`);
     });
     void EmailService.verifyConnection();
+    iniciarCampanhaScheduler();
   })
   .catch((err) => {
     console.error("Erro ao iniciar servidor:", err);

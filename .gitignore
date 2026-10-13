@@ -29,3 +29,6 @@ Thumbs.db
 
 /uploads
 /uploads-tmp
+/uploads-privados
+/coverage
+/uploads-quarentena

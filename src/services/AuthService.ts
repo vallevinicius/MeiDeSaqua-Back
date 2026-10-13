@@ -1,6 +1,5 @@
 import { Op } from "sequelize";
 import bcrypt from "bcryptjs";
-import jwt from "jsonwebtoken";
 import { v4 as uuidv4 } from "uuid";
 import { Usuario, Avaliacao } from "../entities";
 import ProfanityFilter from "../utils/ProfanityFilter";
@@ -10,6 +9,21 @@ import {
   IUpdateProfileRequest,
 } from "../interfaces/requests";
 import { containsEmoji } from "../utils/ValidationEmoji";
+import SessionService from "./SessionService";
+
+// Só o que o navegador pode ver do usuário: nunca senha nem tokens de uso único.
+export const usuarioPublico = (usuario: Usuario) => {
+  const {
+    password,
+    tokenVersion,
+    confirmationToken,
+    resetPasswordToken,
+    resetPasswordTokenExpiry,
+    emailChangeToken,
+    ...publico
+  } = usuario.get({ plain: true }) as any;
+  return publico;
+};
 
 class AuthService {
   public async cadastrarUsuario(dadosUsuario: any) {
@@ -106,14 +120,7 @@ class AuthService {
       throw new Error("Usuário ou senha inválidos");
     }
 
-    const token = jwt.sign(
-      { id: utilizador.usuarioId, username: utilizador.username },
-      process.env.JWT_SECRET as string,
-      { expiresIn: "1h", algorithm: "HS256" }
-    );
-
-    const { password, ...dadosSeguros } = utilizador.get({ plain: true });
-    return { user: dadosSeguros, token };
+    return { user: usuarioPublico(utilizador), usuario: utilizador };
   }
 
   public async confirmUserAccount(token: string) {
@@ -179,6 +186,7 @@ class AuthService {
     utilizador.resetPasswordToken = null;
     utilizador.resetPasswordTokenExpiry = null;
     await utilizador.save();
+    await SessionService.revogarTodas(utilizador.usuarioId);
   }
 
   public async updateUserProfile(userId: number, data: IUpdateProfileRequest) {
@@ -235,6 +243,7 @@ class AuthService {
 
     utilizador.password = await bcrypt.hash(request.newPassword, 10);
     await utilizador.save();
+    await SessionService.revogarTodas(utilizador.usuarioId);
   }
 
   public async deleteUser(userId: number) {

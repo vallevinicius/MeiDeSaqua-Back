@@ -1,7 +1,10 @@
 import { Response } from 'express';
-import AuthService from '../services/AuthService';
+import AuthService, { usuarioPublico } from '../services/AuthService';
 import EstabelecimentoService from '../services/EstabelecimentoService';
 import { AuthenticatedRequest } from '../interfaces/requests';
+import Usuario from '../entities/Usuario.entity';
+import SessionService from '../services/SessionService';
+import { gravarCookieAcesso, gravarCookieRenovacao } from '../utils/cookies';
 
 class UserController {
     public async updateUserProfile(req: AuthenticatedRequest, res: Response): Promise<Response> {
@@ -10,9 +13,7 @@ class UserController {
             if (!userId) return res.status(401).json({ message: "Não autorizado" });
 
             const updatedUser = await AuthService.updateUserProfile(userId, req.body);
-            const { password, ...userDTO } = updatedUser.get({ plain: true });
-
-            return res.json(userDTO);
+            return res.json(usuarioPublico(updatedUser));
         } catch (error: any) {
             return res.status(400).json({ message: error.message });
         }
@@ -36,6 +37,14 @@ class UserController {
             if (!userId) return res.status(401).json({ message: "Não autorizado" });
 
             await AuthService.updateUserPassword(userId, req.body);
+
+            // A troca de senha encerra todas as sessões; este aparelho recebe uma nova.
+            const usuario = await Usuario.findByPk(userId);
+            if (usuario) {
+                const { acesso, renovacao } = await SessionService.criarSessao(usuario, req);
+                gravarCookieAcesso(res, acesso);
+                gravarCookieRenovacao(res, renovacao);
+            }
             return res.json({ message: "Senha alterada com sucesso." });
         } catch (error: any) {
             return res.status(400).json({ message: error.message });

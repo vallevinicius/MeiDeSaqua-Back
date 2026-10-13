@@ -3,9 +3,11 @@ import fs from "fs/promises";
 import path from "path";
 import { v4 as uuidv4 } from "uuid";
 import { sanitizeFilename } from "./stringUtils";
+import { PRIVATE_UPLOADS_DIR } from "./privateFiles";
 
 // O caminho para a pasta de uploads, a partir da raiz do projeto
-const UPLOADS_DIR = path.resolve(__dirname, "..", "..", "uploads");
+// Mesma base usada pelo app.ts e pelas rotas: a pasta de onde o servidor é iniciado.
+const UPLOADS_DIR = path.resolve(process.cwd(), "uploads");
 
 class FileStorageService {
   private buildPublicUrl(filename: string): string {
@@ -67,6 +69,12 @@ class FileStorageService {
     const safeNomeFantasia = sanitizeFilename(nomeFantasia || "mei_sem_nome");
 
     const folderPath = path.join(UPLOADS_DIR, safeCategoria, safeNomeFantasia);
+    const privateFolderPath = path.join(
+      PRIVATE_UPLOADS_DIR,
+      safeCategoria,
+      safeNomeFantasia,
+    );
+    await fs.rm(privateFolderPath, { recursive: true, force: true }).catch(() => {});
 
     try {
       await fs.rm(folderPath, { recursive: true, force: true });

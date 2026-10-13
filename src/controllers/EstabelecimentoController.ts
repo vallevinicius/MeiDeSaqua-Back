@@ -8,6 +8,7 @@ import Estabelecimento from "../entities/Estabelecimento.entity";
 import ContadorVisualizacao from "../entities/ContadorVisualizacao.entity";
 import { sanitizeFilename } from "../utils/stringUtils";
 import { AuthenticatedRequest } from "../interfaces/requests";
+import { PRIVATE_DIR_NAME, PRIVATE_UPLOADS_DIR } from "../utils/privateFiles";
 
 class EstabelecimentoController {
   private _deleteUploadedFilesOnFailure = async (req: Request) => {
@@ -101,7 +102,11 @@ class EstabelecimentoController {
     };
 
     const logoPath = await moveFile(arquivos["logo"]?.[0]);
-    const ccmeiPath = await moveFile(arquivos["ccmei"]?.[0]);
+    const ccmeiPath = await this._moveCcmei(
+      arquivos["ccmei"]?.[0],
+      safeCategoria,
+      safeNomeFantasia,
+    );
 
     const produtosPaths: string[] = [];
     if (arquivos["produtos"]) {
@@ -117,6 +122,21 @@ class EstabelecimentoController {
       ...(produtosPaths.length > 0 && { produtos: produtosPaths }),
       ...(ccmeiPath && { ccmei: ccmeiPath }),
     };
+  };
+
+  // CCMEI contém dado pessoal: vai para a pasta privada, fora do /uploads público.
+  private _moveCcmei = async (
+    file: Express.Multer.File | undefined,
+    categoria: string,
+    nomeFantasia: string,
+  ): Promise<string | undefined> => {
+    if (!file) return undefined;
+    const dir = path.join(PRIVATE_UPLOADS_DIR, categoria, nomeFantasia);
+    await fs.mkdir(dir, { recursive: true });
+    await fs.rename(file.path, path.join(dir, file.filename));
+    return path
+      .join(PRIVATE_DIR_NAME, categoria, nomeFantasia, file.filename)
+      .replace(/\\/g, "/");
   };
 
   public cadastrar = async (
@@ -146,7 +166,7 @@ class EstabelecimentoController {
   };
 
   public solicitarAtualizacao = async (
-    req: Request,
+    req: AuthenticatedRequest,
     res: Response,
   ): Promise<Response> => {
     try {
@@ -160,7 +180,10 @@ class EstabelecimentoController {
       const estabelecimentoExistente = await Estabelecimento.findOne({
         where: { cnpj },
       });
-      if (!estabelecimentoExistente) {
+      if (
+        !estabelecimentoExistente ||
+        estabelecimentoExistente.usuarioId !== req.user?.id
+      ) {
         await this._deleteUploadedFilesOnFailure(req);
         return res.status(404).json({
           message:
@@ -188,7 +211,7 @@ class EstabelecimentoController {
   };
 
   public solicitarExclusao = async (
-    req: Request,
+    req: AuthenticatedRequest,
     res: Response,
   ): Promise<Response> => {
     try {
@@ -210,7 +233,10 @@ class EstabelecimentoController {
       const estabelecimentoExistente = await Estabelecimento.findOne({
         where: { cnpj },
       });
-      if (!estabelecimentoExistente) {
+      if (
+        !estabelecimentoExistente ||
+        estabelecimentoExistente.usuarioId !== req.user?.id
+      ) {
         await this._deleteUploadedFilesOnFailure(req);
         return res.status(404).json({
           message:

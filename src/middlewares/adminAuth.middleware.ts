@@ -1,16 +1,18 @@
-import { Request, Response, NextFunction } from "express";
+import { NextFunction, Request, Response } from "express";
 import * as jwt from "jsonwebtoken";
+import { COOKIE_ADMIN, origemPermitida, tokenDoCabecalho } from "../utils/cookies";
 
-
-export const adminAuthMiddleware = (
-  req: Request,
-  res: Response,
-  next: NextFunction
-) => {
-  const token = req.headers.authorization?.split(" ")[1];
+export const adminAuthMiddleware = (req: Request, res: Response, next: NextFunction) => {
+  const doCabecalho = tokenDoCabecalho(req);
+  const doCookie = req.cookies?.[COOKIE_ADMIN] as string | undefined;
+  const token = doCabecalho || doCookie;
 
   if (!token) {
     return res.status(401).json({ message: "Acesso negado. Token não fornecido." });
+  }
+
+  if (!doCabecalho && !origemPermitida(req)) {
+    return res.status(403).json({ message: "Origem não permitida." });
   }
 
   try {
@@ -18,11 +20,11 @@ export const adminAuthMiddleware = (
       algorithms: ["HS256"],
     }) as any;
     if (decoded.role === "admin") {
-      next();
-    } else {
-      return res.status(403).json({ message: "Acesso negado. Permissão insuficiente." });
+      (req as any).admin = { username: decoded.username };
+      return next();
     }
-  } catch (error) {
+    return res.status(403).json({ message: "Acesso negado. Permissão insuficiente." });
+  } catch {
     return res.status(401).json({ message: "Token inválido." });
   }
 };

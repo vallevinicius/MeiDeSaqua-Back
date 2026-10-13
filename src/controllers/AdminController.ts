@@ -16,6 +16,8 @@ import * as bcrypt from "bcryptjs";
 import * as crypto from "crypto";
 import ContadorVisualizacao from "../entities/ContadorVisualizacao.entity";
 import ContadorVisualizacaoDiario from "../entities/ContadorVisualizacaoDiario.entity";
+import HistoricoRelatorioCampanha from "../entities/HistoricoRelatorioCampanha.entity";
+import CampanhaReportService from "../services/CampanhaReportService";
 
 const ADMIN_USER = process.env.ADMIN_USER;
 
@@ -1409,6 +1411,40 @@ export class AdminController {
       return res
         .status(500)
         .json({ message: "Erro ao enviar email de confirmação." });
+    }
+  }
+
+  // =========================================================================
+  // RELATÓRIOS AUTOMÁTICOS DE CAMPANHA (ANZOL)
+  // =========================================================================
+
+  static async dispararRelatorioCampanha(req: Request, res: Response) {
+    try {
+      const resultado = await CampanhaReportService.dispararRelatorio();
+      return res.status(200).json(resultado);
+    } catch (error: any) {
+      console.error("Erro ao disparar relatório de campanha (admin):", error);
+      return res.status(500).json({
+        message: "Erro ao disparar relatório de campanha.",
+        error: error?.message || String(error),
+      });
+    }
+  }
+
+  static async getHistoricoRelatoriosCampanha(req: Request, res: Response) {
+    try {
+      const historico = await HistoricoRelatorioCampanha.findAll({
+        where: { tipoCampanha: "ANZOL" },
+        order: [["createdAt", "DESC"]],
+        limit: 20,
+      });
+      return res.status(200).json(historico);
+    } catch (error: any) {
+      console.error("Erro ao listar histórico de relatórios (admin):", error);
+      return res.status(500).json({
+        message: "Erro ao buscar histórico de relatórios.",
+        error: error?.message || String(error),
+      });
     }
   }
 }

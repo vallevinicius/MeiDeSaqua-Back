@@ -1,7 +1,7 @@
 import { Op } from "sequelize";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
-import { v4 as uuidv4 } from "uuid";
+import { randomUUID } from "node:crypto";
 import { Usuario, Avaliacao } from "../entities";
 import ProfanityFilter from "../utils/ProfanityFilter";
 import EmailService from "../utils/EmailService";
@@ -57,7 +57,7 @@ class AuthService {
     }
 
     const senhaCriptografada = await bcrypt.hash(dadosUsuario.password, 10);
-    const tokenConfirmacao = uuidv4();
+    const tokenConfirmacao = randomUUID();
 
     const novoUtilizador = await Usuario.create({
       nomeCompleto: dadosUsuario.nomeCompleto,
@@ -151,7 +151,7 @@ class AuthService {
     const utilizador = await Usuario.findOne({ where: { email } });
 
     if (utilizador) {
-      const token = uuidv4();
+      const token = randomUUID();
       utilizador.resetPasswordToken = token;
       const expiryDate = new Date();
       expiryDate.setHours(expiryDate.getHours() + 1);
@@ -208,7 +208,7 @@ class AuthService {
       if (emailExists)
         throw new Error("O novo e-mail já está em uso por outra conta.");
 
-      const token = uuidv4();
+      const token = randomUUID();
       utilizador.unconfirmedEmail = data.email;
       utilizador.emailChangeToken = token;
 

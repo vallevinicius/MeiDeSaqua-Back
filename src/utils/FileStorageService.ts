@@ -1,7 +1,7 @@
 // src/utils/FileStorageService.ts
 import fs from "fs/promises";
 import path from "path";
-import { v4 as uuidv4 } from "uuid";
+import { randomUUID } from "node:crypto";
 import { sanitizeFilename } from "./stringUtils";
 
 // O caminho para a pasta de uploads, a partir da raiz do projeto
@@ -41,7 +41,7 @@ class FileStorageService {
 
     const extension = matches[2];
     const imageBuffer = Buffer.from(matches[3], "base64");
-    const uniqueFilename = `${uuidv4()}.${extension}`;
+    const uniqueFilename = `${randomUUID()}.${extension}`;
     const filePath = path.join(UPLOADS_DIR, uniqueFilename);
 
     await fs.writeFile(filePath, imageBuffer);

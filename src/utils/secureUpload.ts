@@ -4,7 +4,7 @@ import { mkdirSync } from "fs";
 import multer from "multer";
 import path from "path";
 import sharp from "sharp";
-import { v4 as uuidv4 } from "uuid";
+import { randomUUID } from "node:crypto";
 
 // Área privada: nada aqui é servido. O arquivo só sai daqui depois de validado.
 const TMP_DIR = path.resolve(process.cwd(), "uploads-tmp");
@@ -15,7 +15,7 @@ const TAMANHO_MAXIMO = 10 * 1024 * 1024;
 export const uploadSeguro = multer({
   storage: multer.diskStorage({
     destination: (_req, _file, cb) => cb(null, TMP_DIR),
-    filename: (_req, _file, cb) => cb(null, uuidv4()),
+    filename: (_req, _file, cb) => cb(null, randomUUID()),
   }),
   limits: { fileSize: TAMANHO_MAXIMO, files: 10 },
 });
@@ -75,7 +75,7 @@ const validarUploads =
           throw new Error("tipo-invalido");
         }
 
-        const nome = `${uuidv4()}.${tipo === "pdf" ? "pdf" : "webp"}`;
+        const nome = `${randomUUID()}.${tipo === "pdf" ? "pdf" : "webp"}`;
         const destino = path.join(TMP_DIR, nome);
         criados.push(destino);
 

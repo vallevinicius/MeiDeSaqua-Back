@@ -226,7 +226,7 @@ export class CampanhaReportService {
           </div>
           <div class="footer">
             Disparo programado (Terças e Sextas às 14:00).<br>
-            Secretaria Municipal de Governança, Estratégia e Transparência — Prefeitura de Saquarema.
+            Secretaria Municipal de Governança e Sustentabilidade — Prefeitura de Saquarema.
           </div>
         </div>
       </body>
@@ -273,7 +273,7 @@ export class CampanhaReportService {
     }
 
     const html = this.gerarHtmlRelatorio(metricas);
-    const subject = `[MeideSaquá] Métricas: ${metricas.totalHome} na Home (${metricas.totalOrganico} orgânicos / ${metricas.totalGeral} Anzol)`;
+    const subject = "Relatório MeiDeSaquá";
 
     try {
       for (const dest of metricas.destinatarios) {

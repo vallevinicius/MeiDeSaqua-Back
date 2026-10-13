@@ -164,6 +164,14 @@ class CursoService {
       replacements.imagemUrl = dados.imagemUrl;
     }
 
+    // Em banco criado pelo sync() essas colunas são NOT NULL e sem valor padrão.
+    for (const coluna of [schema.createdAtCol, schema.updatedAtCol]) {
+      if (coluna) {
+        columns.push(coluna);
+        values.push("NOW()");
+      }
+    }
+
     await sequelize.query(
       `INSERT INTO cursos (${columns.map((c) => `\`${c}\``).join(", ")}) VALUES (${values.join(", ")})`,
       {
@@ -212,6 +220,10 @@ class CursoService {
 
     if (updates.length === 0) {
       throw new Error("Nenhum campo válido foi informado para atualização.");
+    }
+
+    if (schema.updatedAtCol) {
+      updates.push(`\`${schema.updatedAtCol}\` = NOW()`);
     }
 
     await sequelize.query(

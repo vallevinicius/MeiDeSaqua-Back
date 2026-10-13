@@ -7,6 +7,8 @@ import ImagemProduto from "./ImagemProduto.entity";
 import ContadorVisualizacao from "./ContadorVisualizacao.entity";
 import ContadorVisualizacaoDiario from "./ContadorVisualizacaoDiario.entity";
 import Curso from "./Curso.entity";
+import AuditLog from "./AuditLog.entity";
+import Sessao from "./Sessao.entity";
 import HistoricoRelatorioCampanha from "./HistoricoRelatorioCampanha.entity";
 
 // Usuário <-> Estabelecimento
@@ -61,5 +63,7 @@ export {
   ContadorVisualizacao,
   ContadorVisualizacaoDiario,
   Curso,
+  AuditLog,
+  Sessao,
   HistoricoRelatorioCampanha,
 };

@@ -1,5 +1,6 @@
 // Campos que a vitrine pública pode receber. Dado pessoal (CPF, CNPJ, e-mail,
-// telefone, nome do responsável, CCMEI) e dados_atualizacao nunca entram aqui.
+// nome do responsável, CCMEI) e dados_atualizacao nunca entram aqui.
+// contatoEstabelecimento é o WhatsApp/telefone do negócio, exibido na vitrine.
 export const CAMPOS_VITRINE = [
   "estabelecimentoId",
   "categoria",
@@ -7,6 +8,8 @@ export const CAMPOS_VITRINE = [
   "descricao",
   "descricaoDiferencial",
   "endereco",
+  "contatoEstabelecimento",
+  "createdAt",
   "website",
   "instagram",
   "logoUrl",

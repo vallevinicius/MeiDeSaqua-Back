@@ -7,7 +7,10 @@
     "build": "tsc",
     "start": "node dist/server.js",
     "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
-    "test": "tsc && node --test dist/__tests__/**/*.test.js"
+    "test:vitest": "vitest run",
+    "test:watch": "vitest",
+    "test:node": "tsc && node --test dist/__tests__/**/*.test.js",
+    "test": "npm run test:vitest && npm run test:node"
   },
   "keywords": [],
   "author": "",
@@ -15,9 +18,12 @@
   "dependencies": {
     "axios": "^1.13.1",
     "bcryptjs": "^3.0.2",
+    "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
     "dotenv": "^17.2.2",
     "express": "^5.1.0",
+    "express-rate-limit": "^8.7.1",
+    "helmet": "^8.3.0",
     "jsonwebtoken": "^9.0.2",
     "multer": "^2.0.2",
     "mysql2": "^3.15.0",
@@ -30,6 +36,7 @@
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",
+    "@types/cookie-parser": "^1.4.10",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.3",
     "@types/jsonwebtoken": "^9.0.10",
@@ -38,7 +45,11 @@
     "@types/node-cron": "^3.0.11",
     "@types/nodemailer": "^7.0.1",
     "@types/sharp": "^0.31.1",
+    "@types/supertest": "^7.2.1",
+    "@vitest/coverage-v8": "^5.0.3",
+    "supertest": "^7.3.1",
     "ts-node-dev": "^2.0.0",
-    "typescript": "^5.9.2"
+    "typescript": "^5.9.2",
+    "vitest": "^5.0.3"
   }
 }

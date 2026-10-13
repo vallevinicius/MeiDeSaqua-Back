@@ -8,6 +8,7 @@ import app from "./app";
 import sequelize from "./config/database";
 import "./entities";
 import EmailService from "./utils/EmailService";
+import { garantirColunas } from "./config/migracoes";
 import { runDatabaseMigrations } from "./migrations/initDatabaseMigration";
 import { iniciarCampanhaScheduler } from "./schedulers/campanhaScheduler";
 
@@ -20,6 +21,7 @@ sequelize
     await runDatabaseMigrations();
     return sequelize.sync();
   })
+  .then(() => garantirColunas())
   .then(() => {
     app.listen(PORT, () => {
       console.log(`Servidor rodando na porta ${PORT}`);

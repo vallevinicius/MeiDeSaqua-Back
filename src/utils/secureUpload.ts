@@ -41,6 +41,18 @@ const listarArquivos = (req: Request): Express.Multer.File[] => {
   return [];
 };
 
+const registrarEvento = (req: Request, evento: string, dados: object = {}) => {
+  console.log(
+    JSON.stringify({
+      evento,
+      rota: req.originalUrl,
+      ip: req.ip,
+      usuarioId: (req as any).user?.id ?? null,
+      ...dados,
+    }),
+  );
+};
+
 const limpar = async (req: Request, extras: string[] = []) => {
   const caminhos = [...listarArquivos(req).map((f) => f.path), ...extras];
   await Promise.all(caminhos.map((p) => fs.unlink(p).catch(() => {})));
@@ -72,6 +84,11 @@ const validarUploads =
       for (const file of listarArquivos(req)) {
         const tipo = detectarTipo(await lerCabecalho(file.path));
         if (!tipo || (tipo === "pdf" && !camposPdf.includes(file.fieldname))) {
+          registrarEvento(req, "upload_rejeitado", {
+            campo: file.fieldname,
+            extensaoCliente: path.extname(file.originalname).toLowerCase(),
+            tipoDetectado: tipo,
+          });
           throw new Error("tipo-invalido");
         }
 
@@ -94,6 +111,11 @@ const validarUploads =
         file.filename = nome;
         file.mimetype = tipo === "pdf" ? "application/pdf" : "image/webp";
         file.size = (await fs.stat(destino)).size;
+        registrarEvento(req, "upload_aceito", {
+          campo: file.fieldname,
+          tipo,
+          tamanho: file.size,
+        });
 
         if (moverPara) {
           await fs.mkdir(moverPara, { recursive: true });

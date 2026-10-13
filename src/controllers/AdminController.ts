@@ -15,6 +15,18 @@ import Usuario from "../entities/Usuario.entity";
 import * as bcrypt from "bcryptjs";
 import * as crypto from "crypto";
 import ContadorVisualizacao from "../entities/ContadorVisualizacao.entity";
+import AuditService from "../services/AuditService";
+import SessionService from "../services/SessionService";
+import {
+  HORAS_ADMIN,
+  gravarCookieAdmin,
+  limparCookieAdmin,
+} from "../utils/cookies";
+import {
+  PRIVATE_DIR_NAME,
+  PRIVATE_UPLOADS_DIR,
+  resolverArquivo,
+} from "../utils/privateFiles";
 import ContadorVisualizacaoDiario from "../entities/ContadorVisualizacaoDiario.entity";
 import HistoricoRelatorioCampanha from "../entities/HistoricoRelatorioCampanha.entity";
 import CampanhaReportService from "../services/CampanhaReportService";
@@ -51,7 +63,11 @@ const moveAdminFile = async (
   const safeCategoria = sanitize(categoria || "geral");
   const safeNomeFantasia = sanitize(nomeFantasia || "mei_sem_nome");
 
-  const targetDir = path.resolve("uploads", safeCategoria, safeNomeFantasia);
+  // CCMEI contém dado pessoal: pasta privada, fora do /uploads público.
+  const baseDir =
+    file.fieldname === "ccmei" ? PRIVATE_UPLOADS_DIR : path.resolve("uploads");
+  const baseName = file.fieldname === "ccmei" ? PRIVATE_DIR_NAME : "uploads";
+  const targetDir = path.join(baseDir, safeCategoria, safeNomeFantasia);
 
   await fs.mkdir(targetDir, { recursive: true });
 
@@ -78,24 +94,56 @@ const moveAdminFile = async (
   }
 
   return path
-    .join("uploads", safeCategoria, safeNomeFantasia, fileName)
+    .join(baseName, safeCategoria, safeNomeFantasia, fileName)
     .replace(/\\/g, "/");
 };
 
+// Comparação em tempo constante, para não revelar o tamanho certo por tempo de resposta.
+const iguais = (a: unknown, b: string | undefined): boolean => {
+  if (typeof a !== "string" || typeof b !== "string") return false;
+  const ha = crypto.createHash("sha256").update(a).digest();
+  const hb = crypto.createHash("sha256").update(b).digest();
+  return crypto.timingSafeEqual(ha, hb);
+};
+
 export class AdminController {
+  static async logout(req: Request, res: Response) {
+    limparCookieAdmin(res);
+    return res.status(204).send();
+  }
+
+  static async revogarSessoesUsuario(req: Request, res: Response) {
+    try {
+      const usuario = await Usuario.findByPk(req.params.id);
+      if (!usuario) {
+        return res.status(404).json({ message: "Usuário não encontrado." });
+      }
+      await SessionService.revogarTodas(usuario.usuarioId);
+      AuditService.registrar(req, "revogar_sessoes", usuario.usuarioId);
+      return res.status(200).json({ message: "Sessões do usuário encerradas." });
+    } catch (error) {
+      console.error("Erro ao revogar sessões (admin):", error);
+      return res.status(500).json({ message: "Erro ao encerrar sessões." });
+    }
+  }
+
   static async login(req: Request, res: Response) {
     const { username, password } = req.body;
 
-    if (username === ADMIN_USER && password === ADMIN_PASSWORD) {
+    if (iguais(username, ADMIN_USER) && iguais(password, ADMIN_PASSWORD)) {
       const token = jwt.sign(
         { username, role: "admin" },
         JWT_SECRET as string,
         {
-          expiresIn: "8h",
+          expiresIn: `${HORAS_ADMIN}h`,
           algorithm: "HS256",
         },
       );
-      return res.json({ success: true, token });
+      gravarCookieAdmin(res, token);
+      return res.json({
+        success: true,
+        expiresAt: Date.now() + HORAS_ADMIN * 60 * 60 * 1000,
+      });
     }
 
     return res
@@ -124,6 +172,7 @@ export class AdminController {
         include: [includeOptions],
       });
 
+      AuditService.registrar(req, "listar_pendentes");
       return res.json({ cadastros, atualizacoes, exclusoes });
     } catch (error) {
       console.error(error);
@@ -216,12 +265,7 @@ export class AdminController {
               const logoAntigaUrl = estabelecimento.logoUrl;
               if (logoAntigaUrl) {
                 try {
-                  const filePath = path.join(
-                    __dirname,
-                    "..",
-                    "..",
-                    logoAntigaUrl,
-                  );
+                  const filePath = path.resolve(logoAntigaUrl);
                   await fs.unlink(filePath);
                 } catch (err) {
                   console.error(
@@ -245,7 +289,7 @@ export class AdminController {
 
               for (const imagem of imagensAntigas) {
                 try {
-                  const filePath = path.join(__dirname, "..", "..", imagem.url);
+                  const filePath = path.resolve(imagem.url);
                   await fs.unlink(filePath);
                 } catch (err) {
                   console.error(
@@ -506,10 +550,128 @@ export class AdminController {
     }
   }
 
+  static async baixarCcmei(req: Request, res: Response) {
+    try {
+      const estabelecimento = await Estabelecimento.findByPk(
+        Number(req.params.id),
+      );
+      // ?pendente=1 serve o CCMEI enviado numa atualização ainda não aprovada.
+      const caminhoSalvo =
+        req.query.pendente === "1"
+          ? (estabelecimento?.dados_atualizacao as any)?.ccmei
+          : estabelecimento?.ccmeiUrl;
+      const caminho = caminhoSalvo ? resolverArquivo(caminhoSalvo) : null;
+      if (!estabelecimento || !caminho) {
+        return res.status(404).json({ message: "CCMEI não encontrado." });
+      }
+
+      AuditService.registrar(req, "baixar_ccmei", estabelecimento.estabelecimentoId);
+
+      const ext = path.extname(caminho).toLowerCase();
+      res.setHeader("X-Content-Type-Options", "nosniff");
+      res.setHeader("Cache-Control", "private, no-store");
+      if (![".pdf", ".webp", ".jpg", ".jpeg", ".png"].includes(ext)) {
+        res.setHeader("Content-Disposition", "attachment");
+        res.setHeader("Content-Type", "application/octet-stream");
+      }
+      return res.sendFile(caminho, (erro) => {
+        if (erro && !res.headersSent) {
+          res.status(404).json({ message: "CCMEI não encontrado." });
+        }
+      });
+    } catch (error) {
+      console.error("Erro ao baixar CCMEI:", error);
+      return res.status(500).json({ message: "Erro ao baixar CCMEI." });
+    }
+  }
+
+  static async getEstabelecimentoById(req: Request, res: Response) {
+    try {
+      const estabelecimento = await Estabelecimento.findByPk(Number(req.params.id), {
+        include: [
+          { model: ImagemProduto, as: "produtosImg" },
+          { model: Usuario, as: "usuario", attributes: ["usuarioId", "username", "nomeCompleto"] },
+        ],
+      });
+      if (!estabelecimento) {
+        return res.status(404).json({ message: "Estabelecimento não encontrado." });
+      }
+      AuditService.registrar(req, "consultar_estabelecimento", estabelecimento.estabelecimentoId);
+      return res.json(estabelecimento);
+    } catch (error) {
+      console.error("Erro ao buscar estabelecimento (admin):", error);
+      return res.status(500).json({ message: "Erro ao buscar estabelecimento." });
+    }
+  }
+
+  static async getUserInteractions(req: Request, res: Response) {
+    try {
+      const usuarioId = Number(req.params.id);
+      const usuario = Number.isNaN(usuarioId) ? null : await Usuario.findByPk(usuarioId);
+      if (!usuario) {
+        return res.status(404).json({ message: "Usuário não encontrado." });
+      }
+
+      const meis = await Estabelecimento.findAll({
+        where: { usuarioId },
+        attributes: ["estabelecimentoId", "nomeFantasia", "cnpj", "categoria", "status"],
+      });
+
+      const avaliacoes = await Avaliacao.findAll({
+        where: { usuarioId },
+        include: [
+          { model: Estabelecimento, as: "estabelecimento", attributes: ["nomeFantasia"] },
+          {
+            model: Avaliacao,
+            as: "pai",
+            include: [{ model: Usuario, as: "usuario", attributes: ["nomeCompleto"] }],
+          },
+        ],
+        order: [["avaliacoesId", "DESC"]],
+      });
+
+      const rotuloStatus = (status: string) =>
+        status === StatusEstabelecimento.ATIVO
+          ? "Ativo"
+          : status === StatusEstabelecimento.PENDENTE_APROVACAO
+            ? "Pendente"
+            : "Inativo";
+
+      AuditService.registrar(req, "consultar_interacoes_usuario", usuarioId);
+
+      return res.status(200).json({
+        estabelecimentos: meis.map((est) => ({
+          id: est.estabelecimentoId,
+          nome: est.nomeFantasia,
+          cnpj: est.cnpj,
+          categoria: est.categoria,
+          status: rotuloStatus(est.status),
+        })),
+        avaliacoes: avaliacoes.map((av: any) => {
+          const resposta = av.parentId !== null && av.parentId !== undefined;
+          return {
+            id: av.avaliacoesId,
+            estabelecimento: av.estabelecimento?.nomeFantasia || "Estabelecimento excluído",
+            nota: av.nota,
+            texto: av.comentario,
+            data: av.createdAt ? new Date(av.createdAt).toLocaleDateString("pt-BR") : "-",
+            isReply: resposta,
+            parentTexto: resposta ? av.pai?.comentario ?? null : null,
+            parentAutor: resposta ? av.pai?.usuario?.nomeCompleto ?? null : null,
+          };
+        }),
+      });
+    } catch (error) {
+      console.error("Erro ao buscar interações do usuário:", error);
+      return res.status(500).json({ message: "Erro interno ao buscar interações." });
+    }
+  }
+
   static async getAllActiveEstabelecimentos(req: Request, res: Response) {
     try {
       // Esta função chama o Service, que já está correto
       const estabelecimentos = await EstabelecimentoService.listarTodosParaAdmin();
+      AuditService.registrar(req, "listar_estabelecimentos_ativos");
       return res.json(estabelecimentos);
     } catch (error) {
       console.error(error);
@@ -872,6 +1034,7 @@ export class AdminController {
   static async exportActiveEstabelecimentos(req: Request, res: Response) {
     try {
       const estabelecimentos = await EstabelecimentoService.listarTodosParaAdmin();
+      AuditService.registrar(req, "exportar_estabelecimentos");
 
       if (!estabelecimentos || estabelecimentos.length === 0) {
         return res
@@ -1244,6 +1407,7 @@ export class AdminController {
         },
         order: [["usuarioId", "ASC"]],
       });
+      AuditService.registrar(req, "listar_usuarios");
       return res.json(usuarios);
     } catch (error) {
       console.error("Erro ao buscar usuários (admin):", error);
@@ -1276,6 +1440,11 @@ export class AdminController {
 
       await usuario.update(dadosAtualizacao, { transaction });
       await transaction.commit();
+
+      // Bloquear a conta derruba as sessões abertas imediatamente.
+      if (enabled === false) {
+        await SessionService.revogarTodas(usuario.usuarioId);
+      }
 
       return res
         .status(200)
@@ -1357,6 +1526,7 @@ export class AdminController {
       usuario.resetPasswordTokenExpiry = null;
 
       await usuario.save();
+      await SessionService.revogarTodas(usuario.usuarioId);
 
       return res.status(200).json({ message: "Senha alterada com sucesso." });
     } catch (error) {

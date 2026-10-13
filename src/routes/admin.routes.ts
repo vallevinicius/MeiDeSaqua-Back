@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { AdminController } from "../controllers/AdminController";
 import { adminAuthMiddleware } from "../middlewares/adminAuth.middleware";
+import { limiteLogin } from "../middlewares/rateLimit.middleware";
 import { receberArquivos, uploadSeguro } from "../utils/secureUpload";
 
 const router = Router();
@@ -8,7 +9,26 @@ const uploadAdmin = receberArquivos(uploadSeguro.any(), {
   camposPdf: ["ccmei"],
 });
 
-router.post("/login", AdminController.login);
+router.post("/login", limiteLogin, AdminController.login);
+router.post("/logout", AdminController.logout);
+
+router.get(
+  "/estabelecimento/:id",
+  adminAuthMiddleware,
+  AdminController.getEstabelecimentoById,
+);
+
+router.get(
+  "/users/:id/interacoes",
+  adminAuthMiddleware,
+  AdminController.getUserInteractions,
+);
+
+router.get(
+  "/estabelecimento/:id/ccmei",
+  adminAuthMiddleware,
+  AdminController.baixarCcmei,
+);
 
 router.get("/pending", adminAuthMiddleware, AdminController.getPending);
 router.post(
@@ -105,6 +125,11 @@ router.patch(
   "/users/:id/password",
   adminAuthMiddleware,
   AdminController.adminChangePassword,
+);
+router.post(
+  "/users/:id/revoke-sessions",
+  adminAuthMiddleware,
+  AdminController.revogarSessoesUsuario,
 );
 router.post(
   "/users/:id/resend-confirmation",

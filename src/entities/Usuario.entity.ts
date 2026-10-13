@@ -13,6 +13,7 @@ class Usuario extends Model {
   public resetPasswordTokenExpiry!: Date | null;
   public unconfirmedEmail!: string | null;
   public emailChangeToken!: string | null;
+  public tokenVersion!: number;
 }
 
 Usuario.init({
@@ -69,6 +70,13 @@ Usuario.init({
     type: DataTypes.STRING,
     allowNull: true,
     field: 'email_change_token'
+  },
+  // Aumenta para invalidar todos os tokens já emitidos (troca de senha, bloqueio...).
+  tokenVersion: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    defaultValue: 0,
+    field: 'token_version'
   },
   createdAt: {
     type: DataTypes.DATE,

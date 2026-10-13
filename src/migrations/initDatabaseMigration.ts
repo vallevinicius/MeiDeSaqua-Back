@@ -64,7 +64,40 @@ export async function runDatabaseMigrations(): Promise<void> {
 
     // 4. Garantir criação da tabela de histórico de disparos de relatórios de campanha
     await HistoricoRelatorioCampanha.sync();
-    console.log("[MIGRATION] Tabela 'historico_relatorios_campanha' pronta.");
+    const colunasHist = await queryInterface
+      .describeTable("historico_relatorios_campanha")
+      .catch(() => null);
+    if (colunasHist) {
+      if (!colunasHist["total_home"]) {
+        await queryInterface.addColumn("historico_relatorios_campanha", "total_home", {
+          type: DataTypes.INTEGER,
+          allowNull: false,
+          defaultValue: 0,
+        });
+      }
+      if (!colunasHist["delta_home"]) {
+        await queryInterface.addColumn("historico_relatorios_campanha", "delta_home", {
+          type: DataTypes.INTEGER,
+          allowNull: false,
+          defaultValue: 0,
+        });
+      }
+      if (!colunasHist["total_organico"]) {
+        await queryInterface.addColumn("historico_relatorios_campanha", "total_organico", {
+          type: DataTypes.INTEGER,
+          allowNull: false,
+          defaultValue: 0,
+        });
+      }
+      if (!colunasHist["delta_organico"]) {
+        await queryInterface.addColumn("historico_relatorios_campanha", "delta_organico", {
+          type: DataTypes.INTEGER,
+          allowNull: false,
+          defaultValue: 0,
+        });
+      }
+    }
+    console.log("[MIGRATION] Tabela 'historico_relatorios_campanha' pronta e sincronizada.");
   } catch (error) {
     console.error("[MIGRATION_ERROR] Falha ao executar migrações de banco:", error);
   }

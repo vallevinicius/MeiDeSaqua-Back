@@ -7,6 +7,10 @@ class HistoricoRelatorioCampanha extends Model {
   public totalMei!: number;
   public totalUsuario!: number;
   public totalGeral!: number;
+  public totalHome!: number;
+  public deltaHome!: number;
+  public totalOrganico!: number;
+  public deltaOrganico!: number;
   public deltaMei!: number;
   public deltaUsuario!: number;
   public deltaGeral!: number;
@@ -47,6 +51,30 @@ HistoricoRelatorioCampanha.init(
       allowNull: false,
       defaultValue: 0,
       field: "total_geral",
+    },
+    totalHome: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      defaultValue: 0,
+      field: "total_home",
+    },
+    deltaHome: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      defaultValue: 0,
+      field: "delta_home",
+    },
+    totalOrganico: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      defaultValue: 0,
+      field: "total_organico",
+    },
+    deltaOrganico: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      defaultValue: 0,
+      field: "delta_organico",
     },
     deltaMei: {
       type: DataTypes.INTEGER,

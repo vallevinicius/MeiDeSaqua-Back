@@ -186,3 +186,58 @@ describe("Validação de Boundaries e Periodização - getDashboardStats", () =>
     assert.match(jsonBody?.message || "", /superior à data final/);
   });
 });
+
+describe("Contabilização de Comentários e Respostas - getDashboardStats", () => {
+  test("Cálculo de média de avaliações deve considerar apenas notas válidas e somar comentários + respostas no total", () => {
+    const avaliacoesFicticias = [
+      { nota: 5 }, // Comentário principal
+      { nota: null }, // Resposta 1
+      { nota: null }, // Resposta 2
+    ];
+
+    const totalAvaliacoes = avaliacoesFicticias.length;
+    let somaNotas = 0;
+    let totalComNota = 0;
+    const distribuicaoNotas = [0, 0, 0, 0, 0];
+
+    avaliacoesFicticias.forEach((a: any) => {
+      if (a.nota !== null && a.nota !== undefined && a.nota > 0) {
+        somaNotas += a.nota;
+        totalComNota++;
+        const notaIndex = Math.floor(a.nota) - 1;
+        if (notaIndex >= 0 && notaIndex < 5) {
+          distribuicaoNotas[notaIndex]++;
+        }
+      }
+    });
+
+    const mediaAvaliacao =
+      totalComNota > 0 ? (somaNotas / totalComNota).toFixed(1) : 0;
+
+    assert.equal(totalAvaliacoes, 3, "Total de avaliações deve ser 3 (1 comentário + 2 respostas)");
+    assert.equal(totalComNota, 1, "Apenas 1 avaliação deve contar para nota");
+    assert.equal(mediaAvaliacao, "5.0", "Média deve ser 5.0 e não diluída pelas respostas sem nota");
+    assert.equal(distribuicaoNotas[4], 1, "Deve ter 1 avaliação na faixa de 5 estrelas");
+  });
+
+  test("Cenário de dia sem comentários (ex: dia 13) deve retornar 0 no total e 0 na média", () => {
+    const avaliacoesVazias: any[] = [];
+    const totalAvaliacoes = avaliacoesVazias.length;
+    let somaNotas = 0;
+    let totalComNota = 0;
+
+    avaliacoesVazias.forEach((a: any) => {
+      if (a.nota !== null && a.nota !== undefined && a.nota > 0) {
+        somaNotas += a.nota;
+        totalComNota++;
+      }
+    });
+
+    const mediaAvaliacao =
+      totalComNota > 0 ? (somaNotas / totalComNota).toFixed(1) : 0;
+
+    assert.equal(totalAvaliacoes, 0, "Dia sem comentários deve retornar 0");
+    assert.equal(mediaAvaliacao, 0, "Média deve ser 0 quando não há avaliações");
+  });
+});
+

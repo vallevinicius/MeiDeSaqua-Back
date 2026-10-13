@@ -6,6 +6,7 @@ import fs from "fs/promises";
 import path from "path";
 import Estabelecimento from "../entities/Estabelecimento.entity";
 import ContadorVisualizacao from "../entities/ContadorVisualizacao.entity";
+import ContadorVisualizacaoDiario from "../entities/ContadorVisualizacaoDiario.entity";
 import { sanitizeFilename } from "../utils/stringUtils";
 import { AuthenticatedRequest } from "../interfaces/requests";
 import { PRIVATE_DIR_NAME, PRIVATE_UPLOADS_DIR } from "../utils/privateFiles";
@@ -290,7 +291,12 @@ class EstabelecimentoController {
     res: Response,
   ): Promise<Response> => {
     try {
-      const id = parseInt(req.params.id);
+      const id = Number(req.params.id);
+      if (!Number.isInteger(id) || id <= 0) {
+        return res.status(400).json({
+          message: "ID de estabelecimento inválido.",
+        });
+      }
 
       const estabelecimento = await EstabelecimentoService.buscarPorId(id);
 
@@ -309,7 +315,13 @@ class EstabelecimentoController {
     res: Response,
   ): Promise<Response> => {
     try {
-      const id = parseInt(req.params.id);
+      const id = Number(req.params.id);
+      if (!Number.isInteger(id) || id <= 0) {
+        return res.status(400).json({
+          message: "ID de estabelecimento inválido.",
+        });
+      }
+
       const { ativo } = req.body;
       if (typeof ativo !== "boolean") {
         return res.status(400).json({
@@ -369,8 +381,14 @@ class EstabelecimentoController {
         where: { identificador: chaveFormatada },
         defaults: { visualizacoes: 0 },
       });
-
       await registro.increment("visualizacoes");
+
+      const hoje = new Date().toISOString().slice(0, 10);
+      const [registroDiario] = await ContadorVisualizacaoDiario.findOrCreate({
+        where: { identificador: chaveFormatada, data: hoje },
+        defaults: { visualizacoes: 0 },
+      });
+      await registroDiario.increment("visualizacoes");
 
       return res.status(200).json({ success: true });
     } catch (error: any) {

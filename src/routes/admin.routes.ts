@@ -138,4 +138,16 @@ router.post(
 );
 // =================================
 
+// ====== Relatórios de Campanha (Anzol) ======
+router.post(
+  "/relatorios/campanha-anzol/disparar",
+  adminAuthMiddleware,
+  AdminController.dispararRelatorioCampanha,
+);
+router.get(
+  "/relatorios/campanha-anzol/historico",
+  adminAuthMiddleware,
+  AdminController.getHistoricoRelatoriosCampanha,
+);
+
 export default router;

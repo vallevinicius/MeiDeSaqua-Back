@@ -1,4 +1,5 @@
 import { Request, Response } from "express";
+import { Op } from "sequelize";
 import Estabelecimento, {
   StatusEstabelecimento,
 } from "../entities/Estabelecimento.entity";
@@ -26,6 +27,9 @@ import {
   PRIVATE_UPLOADS_DIR,
   resolverArquivo,
 } from "../utils/privateFiles";
+import ContadorVisualizacaoDiario from "../entities/ContadorVisualizacaoDiario.entity";
+import HistoricoRelatorioCampanha from "../entities/HistoricoRelatorioCampanha.entity";
+import CampanhaReportService from "../services/CampanhaReportService";
 
 const ADMIN_USER = process.env.ADMIN_USER;
 
@@ -1116,25 +1120,89 @@ export class AdminController {
 
   static async getDashboardStats(req: Request, res: Response) {
     try {
+      const { startDate, endDate } = req.query as {
+        startDate?: string;
+        endDate?: string;
+      };
+
+      const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+      const hasStartDate = Boolean(startDate && typeof startDate === "string" && startDate.trim() !== "");
+      const hasEndDate = Boolean(endDate && typeof endDate === "string" && endDate.trim() !== "");
+
+      if ((hasStartDate && !hasEndDate) || (!hasStartDate && hasEndDate)) {
+        return res.status(400).json({
+          message: "Data inicial e data final devem ser fornecidas juntas.",
+        });
+      }
+
+      let isPeriodo = false;
+      let startStr = "";
+      let endStr = "";
+
+      if (hasStartDate && hasEndDate) {
+        startStr = (startDate as string).trim();
+        endStr = (endDate as string).trim();
+
+        if (!dateRegex.test(startStr) || !dateRegex.test(endStr)) {
+          return res.status(400).json({
+            message: "Formato de data inválido. Use AAAA-MM-DD.",
+          });
+        }
+
+        if (startStr > endStr) {
+          return res.status(400).json({
+            message: "Data inicial não pode ser superior à data final.",
+          });
+        }
+
+        isPeriodo = true;
+      }
+
+      // 1. MEIs
+      const whereEstabelecimentos: any = {
+        status: StatusEstabelecimento.ATIVO,
+      };
+      if (isPeriodo) {
+        whereEstabelecimentos.createdAt = {
+          [Op.between]: [
+            new Date(`${startStr}T00:00:00.000Z`),
+            new Date(`${endStr}T23:59:59.999Z`),
+          ],
+        };
+      }
+
       const estabelecimentos = await Estabelecimento.findAll({
-        where: { status: StatusEstabelecimento.ATIVO },
+        where: whereEstabelecimentos,
         attributes: ["estabelecimentoId", "categoria", "escala", "venda"],
       });
 
       const totalMeis = estabelecimentos.length;
 
+      // 2. Avaliações (Comentários e Respostas)
+      const whereAvaliacoes: any = {};
+      if (isPeriodo) {
+        whereAvaliacoes.createdAt = {
+          [Op.between]: [
+            new Date(`${startStr}T00:00:00.000Z`),
+            new Date(`${endStr}T23:59:59.999Z`),
+          ],
+        };
+      }
+
       const avaliacoes = await Avaliacao.findAll({
-        where: { parentId: null },
+        where: whereAvaliacoes,
         attributes: ["nota"],
       });
 
       const totalAvaliacoes = avaliacoes.length;
       let somaNotas = 0;
+      let totalComNota = 0;
       const distribuicaoNotas = [0, 0, 0, 0, 0];
 
       avaliacoes.forEach((a) => {
-        if (a.nota) {
+        if (a.nota !== null && a.nota !== undefined && a.nota > 0) {
           somaNotas += a.nota;
+          totalComNota++;
           const notaIndex = Math.floor(a.nota) - 1;
           if (notaIndex >= 0 && notaIndex < 5) {
             distribuicaoNotas[notaIndex]++;
@@ -1143,7 +1211,7 @@ export class AdminController {
       });
 
       const mediaAvaliacao =
-        totalAvaliacoes > 0 ? (somaNotas / totalAvaliacoes).toFixed(1) : 0;
+        totalComNota > 0 ? (somaNotas / totalComNota).toFixed(1) : 0;
 
       const chartDistribuicaoNotas = distribuicaoNotas.map((qtd, index) => ({
         nota: `${index + 1} Estrela${index !== 0 ? "s" : ""}`,
@@ -1196,9 +1264,47 @@ export class AdminController {
         .map(([canal, qtd]) => ({ canal, qtd }))
         .sort((a, b) => b.qtd - a.qtd);
 
-      // 3. Processamento de Visualizações e Cliques (ATUALIZADO)
-      const totalUsuarios = await Usuario.count();
-      const visualizacoesRaw = await ContadorVisualizacao.findAll();
+      // 3. Usuários
+      const whereUsuarios: any = {};
+      if (isPeriodo) {
+        whereUsuarios.createdAt = {
+          [Op.between]: [
+            new Date(`${startStr}T00:00:00.000Z`),
+            new Date(`${endStr}T23:59:59.999Z`),
+          ],
+        };
+      }
+      const totalUsuarios = await Usuario.count({ where: whereUsuarios });
+
+      // 4. Processamento de Visualizações e Cliques
+      let visualizacoesRaw: Array<{ identificador: string; visualizacoes: number }> = [];
+
+      if (isPeriodo) {
+        const registrosAgrupados = await ContadorVisualizacaoDiario.findAll({
+          where: {
+            data: {
+              [Op.between]: [startStr, endStr],
+            },
+          },
+          attributes: [
+            "identificador",
+            [sequelize.fn("SUM", sequelize.col("visualizacoes")), "totalVisualizacoes"],
+          ],
+          group: ["identificador"],
+          raw: true,
+        });
+
+        visualizacoesRaw = (registrosAgrupados as any[]).map((r) => ({
+          identificador: r.identificador,
+          visualizacoes: Number(r.totalVisualizacoes) || 0,
+        }));
+      } else {
+        const registrosTotais = await ContadorVisualizacao.findAll();
+        visualizacoesRaw = registrosTotais.map((r) => ({
+          identificador: r.identificador,
+          visualizacoes: r.visualizacoes,
+        }));
+      }
 
       const pageViews = {
         home: 0,
@@ -1210,7 +1316,6 @@ export class AdminController {
       const mapaVisualizacoes: { [key: string]: number } = {};
       const mapaCursos: { [key: string]: number } = {};
 
-      // NOVOS CONTADORES ESPECÍFICOS
       const espacoMeiClicks = { gov: 0, wpp: 0, email: 0 };
       let perfilCompartilhado = 0;
 
@@ -1219,9 +1324,15 @@ export class AdminController {
           pageViews.home = v.visualizacoes;
         } else if (v.identificador === "ESPACO_MEI") {
           pageViews.espacoMei = v.visualizacoes;
-        } else if (v.identificador === "REDIRECIONAMENTO_ANZOL_MEI" || v.identificador === "CAT_REDIRECIONAMENTO_ANZOL_MEI") {
+        } else if (
+          v.identificador === "REDIRECIONAMENTO_ANZOL_MEI" ||
+          v.identificador === "CAT_REDIRECIONAMENTO_ANZOL_MEI"
+        ) {
           pageViews.redirecionamentoMei += v.visualizacoes;
-        } else if (v.identificador === "REDIRECIONAMENTO_ANZOL_USUARIO" || v.identificador === "CAT_REDIRECIONAMENTO_ANZOL_USUARIO") {
+        } else if (
+          v.identificador === "REDIRECIONAMENTO_ANZOL_USUARIO" ||
+          v.identificador === "CAT_REDIRECIONAMENTO_ANZOL_USUARIO"
+        ) {
           pageViews.redirecionamentoUsuario += v.visualizacoes;
         } else if (v.identificador.startsWith("CAT_")) {
           let nomeCat = v.identificador
@@ -1238,9 +1349,7 @@ export class AdminController {
             .toLowerCase();
           nomeCurso = nomeCurso.charAt(0).toUpperCase() + nomeCurso.slice(1);
           mapaCursos[nomeCurso] = v.visualizacoes;
-        }
-        // --- LÓGICA NOVA PARA OS LINKS ---
-        else if (v.identificador === "LINK_GOV") {
+        } else if (v.identificador === "LINK_GOV") {
           espacoMeiClicks.gov = v.visualizacoes;
         } else if (v.identificador === "LINK_WPP") {
           espacoMeiClicks.wpp = v.visualizacoes;
@@ -1274,6 +1383,11 @@ export class AdminController {
         chartCursos,
         espacoMeiClicks,
         perfilCompartilhado,
+        periodo: {
+          isPeriodo,
+          startDate: isPeriodo ? startStr : null,
+          endDate: isPeriodo ? endStr : null,
+        },
       });
     } catch (error) {
       console.error("Erro dashboard:", error);
@@ -1467,6 +1581,40 @@ export class AdminController {
       return res
         .status(500)
         .json({ message: "Erro ao enviar email de confirmação." });
+    }
+  }
+
+  // =========================================================================
+  // RELATÓRIOS AUTOMÁTICOS DE CAMPANHA (ANZOL)
+  // =========================================================================
+
+  static async dispararRelatorioCampanha(req: Request, res: Response) {
+    try {
+      const resultado = await CampanhaReportService.dispararRelatorio();
+      return res.status(200).json(resultado);
+    } catch (error: any) {
+      console.error("Erro ao disparar relatório de campanha (admin):", error);
+      return res.status(500).json({
+        message: "Erro ao disparar relatório de campanha.",
+        error: error?.message || String(error),
+      });
+    }
+  }
+
+  static async getHistoricoRelatoriosCampanha(req: Request, res: Response) {
+    try {
+      const historico = await HistoricoRelatorioCampanha.findAll({
+        where: { tipoCampanha: "ANZOL" },
+        order: [["createdAt", "DESC"]],
+        limit: 20,
+      });
+      return res.status(200).json(historico);
+    } catch (error: any) {
+      console.error("Erro ao listar histórico de relatórios (admin):", error);
+      return res.status(500).json({
+        message: "Erro ao buscar histórico de relatórios.",
+        error: error?.message || String(error),
+      });
     }
   }
 }

@@ -126,9 +126,13 @@ describe("POST /api/auth/login", () => {
     for (const segredo of ["TOKEN-CONFIRMACAO", "TOKEN-RESET", "TOKEN-TROCA-EMAIL", usuario.password]) {
       expect(res.text).not.toContain(segredo);
     }
-    expect(Object.keys(res.body.user).sort()).toEqual(
-      ["email", "enabled", "nomeCompleto", "unconfirmedEmail", "usuarioId", "username"].sort(),
-    );
+    // Nenhum campo sensível, mesmo que o modelo ganhe colunas novas.
+    for (const proibido of ["password", "tokenVersion", "token_version", "confirmationToken", "resetPasswordToken", "resetPasswordTokenExpiry", "emailChangeToken"]) {
+      expect(res.body.user).not.toHaveProperty(proibido);
+    }
+    for (const esperado of ["usuarioId", "username", "email", "nomeCompleto", "enabled"]) {
+      expect(res.body.user).toHaveProperty(esperado);
+    }
   });
 
   it("entra também com o e-mail", async () => {

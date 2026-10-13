@@ -232,7 +232,7 @@ describe("GET /api/admin/dashboard-stats", () => {
     expect(res.body.chartEscalaNegocio[0].label).toBe("Escala 2");
   });
 
-  it("não conta respostas nas avaliações e mapeia os contadores de visualização", async () => {
+  it("o total conta comentários e respostas, a média só as notas, e mapeia os contadores de visualização", async () => {
     const a = await criarUsuario();
     const e = await criarEstabelecimento(a.usuario.usuarioId);
     const pai = await Avaliacao.create({ nota: 4, comentario: "p", usuarioId: a.usuario.usuarioId, estabelecimentoId: e.estabelecimentoId } as any);
@@ -243,7 +243,9 @@ describe("GET /api/admin/dashboard-stats", () => {
     })) await ContadorVisualizacao.create({ identificador, visualizacoes } as any);
 
     const res = await request(app).get("/api/admin/dashboard-stats").set(admin());
-    expect(res.body.totalAvaliacoes).toBe(1);
+    // Regra atual da main: o total inclui respostas; a média usa só avaliações com nota.
+    expect(res.body.totalAvaliacoes).toBe(2);
+    expect(res.body.mediaAvaliacao).toBe("4.0");
     expect(res.body.pageViews).toEqual({
       home: 10, espacoMei: 5, categoriasTotal: 7, redirecionamentoMei: 8, redirecionamentoUsuario: 9,
     });

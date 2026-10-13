@@ -77,11 +77,21 @@ Usuario.init({
     allowNull: false,
     defaultValue: 0,
     field: 'token_version'
+  },
+  createdAt: {
+    type: DataTypes.DATE,
+    field: 'created_at',
+  },
+  updatedAt: {
+    type: DataTypes.DATE,
+    field: 'updated_at',
   }
 }, {
   sequelize,
   tableName: 'usuarios',
-  timestamps: false 
+  timestamps: true,
+  createdAt: 'created_at',
+  updatedAt: 'updated_at',
 });
 
 export default Usuario;

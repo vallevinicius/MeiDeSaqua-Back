@@ -1015,10 +1015,8 @@ export class AdminController {
 
       const totalMeis = estabelecimentos.length;
 
-      // 2. Avaliações
-      const whereAvaliacoes: any = {
-        parentId: null,
-      };
+      // 2. Avaliações (Comentários e Respostas)
+      const whereAvaliacoes: any = {};
       if (isPeriodo) {
         whereAvaliacoes.createdAt = {
           [Op.between]: [
@@ -1035,11 +1033,13 @@ export class AdminController {
 
       const totalAvaliacoes = avaliacoes.length;
       let somaNotas = 0;
+      let totalComNota = 0;
       const distribuicaoNotas = [0, 0, 0, 0, 0];
 
       avaliacoes.forEach((a) => {
-        if (a.nota) {
+        if (a.nota !== null && a.nota !== undefined && a.nota > 0) {
           somaNotas += a.nota;
+          totalComNota++;
           const notaIndex = Math.floor(a.nota) - 1;
           if (notaIndex >= 0 && notaIndex < 5) {
             distribuicaoNotas[notaIndex]++;
@@ -1048,7 +1048,7 @@ export class AdminController {
       });
 
       const mediaAvaliacao =
-        totalAvaliacoes > 0 ? (somaNotas / totalAvaliacoes).toFixed(1) : 0;
+        totalComNota > 0 ? (somaNotas / totalComNota).toFixed(1) : 0;
 
       const chartDistribuicaoNotas = distribuicaoNotas.map((qtd, index) => ({
         nota: `${index + 1} Estrela${index !== 0 ? "s" : ""}`,

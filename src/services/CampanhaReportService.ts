@@ -170,6 +170,9 @@ export class CampanhaReportService {
       <body>
         <div class="container">
           <div class="header">
+            <div style="background: #ffffff; display: inline-block; padding: 8px 18px; border-radius: 10px; margin-bottom: 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+              <img src="https://meidesaqua.saquarema.rj.gov.br/LogoMeideSaqua.png" alt="Logo MeideSaquá" style="max-height: 46px; width: auto; display: block;" />
+            </div>
             <h1>Relatório de Desempenho e Campanha</h1>
             <p>Portal MeideSaquá • ${dataHoraFormatada}</p>
           </div>

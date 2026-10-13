@@ -4,12 +4,12 @@ import CampanhaReportService from "../services/CampanhaReportService";
 import ContadorVisualizacao from "../entities/ContadorVisualizacao.entity";
 import HistoricoRelatorioCampanha from "../entities/HistoricoRelatorioCampanha.entity";
 import { adminAuthMiddleware } from "../middlewares/adminAuth.middleware";
-import { AdminController } from "../controllers/AdminController";
+import EstabelecimentoController from "../controllers/EstabelecimentoController";
 import * as jwt from "jsonwebtoken";
 
 process.env.ADMIN_JWT_SECRET = process.env.ADMIN_JWT_SECRET || "test_jwt_secret_key_12345";
 
-describe("Testes Unitários: Relatório de Campanha Anzol", () => {
+describe("Testes Unitários: Relatório de Campanha Anzol e Métricas da Home", () => {
   before(async () => {
     await ContadorVisualizacao.sync();
     await HistoricoRelatorioCampanha.sync();
@@ -20,6 +20,7 @@ describe("Testes Unitários: Relatório de Campanha Anzol", () => {
     await ContadorVisualizacao.destroy({
       where: {
         identificador: [
+          "HOME_TEST",
           "REDIRECIONAMENTO_ANZOL_MEI",
           "CAT_REDIRECIONAMENTO_ANZOL_MEI",
           "REDIRECIONAMENTO_ANZOL_USUARIO",
@@ -34,31 +35,37 @@ describe("Testes Unitários: Relatório de Campanha Anzol", () => {
     });
   });
 
-  test("Cenário 1: Primeiro relatório (sem histórico prévio) deve ter deltas iguais aos totais", async () => {
+  test("Cenário 1: Primeiro relatório com métricas de Home e Orgânico (sem histórico prévio)", async () => {
     await ContadorVisualizacao.create({
       identificador: "REDIRECIONAMENTO_ANZOL_MEI",
-      visualizacoes: 42,
+      visualizacoes: 40,
     });
     await ContadorVisualizacao.create({
       identificador: "REDIRECIONAMENTO_ANZOL_USUARIO",
-      visualizacoes: 18,
+      visualizacoes: 20,
     });
 
     const metricas = await CampanhaReportService.coletarMetricas();
 
-    assert.equal(metricas.totalMei, 42);
-    assert.equal(metricas.totalUsuario, 18);
+    assert.equal(metricas.totalMei, 40);
+    assert.equal(metricas.totalUsuario, 20);
     assert.equal(metricas.totalGeral, 60);
-    assert.equal(metricas.deltaMei, 42);
-    assert.equal(metricas.deltaUsuario, 18);
+    assert.equal(metricas.deltaMei, 40);
+    assert.equal(metricas.deltaUsuario, 20);
     assert.equal(metricas.deltaGeral, 60);
+    // Home orgânico é totalHome - totalGeral (com mínimo 0)
+    assert.equal(metricas.totalOrganico, Math.max(0, metricas.totalHome - 60));
     assert.equal(metricas.ultimoEnvioEm, null);
   });
 
-  test("Cenário 2: Segundo relatório com histórico anterior deve calcular a diferença exata (delta)", async () => {
+  test("Cenário 2: Segundo relatório com histórico anterior deve calcular a diferença exata (delta) de Anzol e Home", async () => {
     // 1. Simula envio anterior salvo no histórico
     await HistoricoRelatorioCampanha.create({
       tipoCampanha: "ANZOL",
+      totalHome: 100,
+      deltaHome: 100,
+      totalOrganico: 60,
+      deltaOrganico: 60,
       totalMei: 30,
       totalUsuario: 10,
       totalGeral: 40,
@@ -90,23 +97,28 @@ describe("Testes Unitários: Relatório de Campanha Anzol", () => {
     assert.notEqual(metricas.ultimoEnvioEm, null);
   });
 
-  test("Cenário 3: Geração de HTML deve conter todos os cards, badges e rodapé institucional", () => {
+  test("Cenário 3: Geração de HTML deve conter seções de Home (Orgânico) e Detalhamento da Campanha", () => {
     const html = CampanhaReportService.gerarHtmlRelatorio({
-      totalMei: 100,
-      totalUsuario: 50,
-      totalGeral: 150,
-      deltaMei: 12,
-      deltaUsuario: 8,
-      deltaGeral: 20,
+      totalHome: 200,
+      totalOrganico: 130,
+      totalMei: 50,
+      totalUsuario: 20,
+      totalGeral: 70,
+      deltaHome: 40,
+      deltaOrganico: 25,
+      deltaMei: 10,
+      deltaUsuario: 5,
+      deltaGeral: 15,
       ultimoEnvioEm: new Date("2026-10-10T14:00:00Z"),
       destinatarios: ["gestao@saquarema.rj.gov.br"],
     });
 
-    assert.match(html, /Relatório de Campanha: Anzol/);
+    assert.match(html, /Desempenho da Página Inicial \(HOME\)/);
+    assert.match(html, /Acessos Orgânicos \(Direto \/ Busca\)/);
+    assert.match(html, /Detalhamento da Campanha Anzol/);
     assert.match(html, /Cliques de MEI/);
-    assert.match(html, /\+12 novos/);
-    assert.match(html, /\+8 novos/);
-    assert.match(html, /\+20 no período/);
+    assert.match(html, /\+10 novos/);
+    assert.match(html, /\+5 novos/);
     assert.match(html, /Terças e Sextas às 14:00/);
   });
 
@@ -152,5 +164,27 @@ describe("Testes Unitários: Relatório de Campanha Anzol", () => {
 
     assert.equal(statusCode, 401);
     assert.equal(nextCalled, false);
+  });
+
+  test("Cenário 6: Blindagem Zero-Trust de ID no EstabelecimentoController (bloqueio de NaN/não-números)", async () => {
+    let statusCode = 0;
+    let jsonBody: any = null;
+
+    const req: any = { params: { id: "categorias" } }; // Simula id não numérico que causava crash no MySQL
+    const res: any = {
+      status: (code: number) => {
+        statusCode = code;
+        return {
+          json: (body: any) => {
+            jsonBody = body;
+          },
+        };
+      },
+    };
+
+    await EstabelecimentoController.buscarPorId(req, res);
+
+    assert.equal(statusCode, 400);
+    assert.match(jsonBody?.message, /ID de estabelecimento inválido/);
   });
 });

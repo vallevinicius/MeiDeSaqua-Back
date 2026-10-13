@@ -7,6 +7,7 @@ import ImagemProduto from "./ImagemProduto.entity";
 import ContadorVisualizacao from "./ContadorVisualizacao.entity";
 import ContadorVisualizacaoDiario from "./ContadorVisualizacaoDiario.entity";
 import Curso from "./Curso.entity";
+import HistoricoRelatorioCampanha from "./HistoricoRelatorioCampanha.entity";
 
 // Usuário <-> Estabelecimento
 Usuario.hasMany(Estabelecimento, {
@@ -60,4 +61,5 @@ export {
   ContadorVisualizacao,
   ContadorVisualizacaoDiario,
   Curso,
+  HistoricoRelatorioCampanha,
 };

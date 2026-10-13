@@ -1,6 +1,7 @@
 import { DataTypes } from "sequelize";
 import sequelize from "../config/database";
 import ContadorVisualizacaoDiario from "../entities/ContadorVisualizacaoDiario.entity";
+import HistoricoRelatorioCampanha from "../entities/HistoricoRelatorioCampanha.entity";
 
 export async function runDatabaseMigrations(): Promise<void> {
   const queryInterface = sequelize.getQueryInterface();
@@ -60,6 +61,10 @@ export async function runDatabaseMigrations(): Promise<void> {
     // 3. Garantir criação da tabela de contagem diária com índice composto
     await ContadorVisualizacaoDiario.sync();
     console.log("[MIGRATION] Tabela 'contador_visualizacoes_diarias' pronta.");
+
+    // 4. Garantir criação da tabela de histórico de disparos de relatórios de campanha
+    await HistoricoRelatorioCampanha.sync();
+    console.log("[MIGRATION] Tabela 'historico_relatorios_campanha' pronta.");
   } catch (error) {
     console.error("[MIGRATION_ERROR] Falha ao executar migrações de banco:", error);
   }

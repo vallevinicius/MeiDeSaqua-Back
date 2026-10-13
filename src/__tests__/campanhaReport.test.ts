@@ -120,6 +120,7 @@ describe("Testes Unitários: Relatório de Campanha Anzol e Métricas da Home", 
     assert.match(html, /\+10 novos/);
     assert.match(html, /\+5 novos/);
     assert.match(html, /Terças e Sextas às 14:00/);
+    assert.match(html, /Governança e Sustentabilidade/);
   });
 
   test("Cenário 4: Disparo sem destinatários configurados deve falhar de forma segura e registrar no histórico", async () => {
